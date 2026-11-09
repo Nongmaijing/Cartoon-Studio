@@ -71,7 +71,7 @@ The MCP server and AI Director call the **same** `ToolRegistry`, which calls the
 ## Security boundary
 
 - Local UI is unauthenticated by design.
-- MCP HTTP requires a bearer token.
+- MCP HTTP requires a bearer token by default; explicit no-auth mode exists only for local ChatGPT testing behind a private tunnel.
 - AI Director is project-scoped and uses server-side OpenAI credentials.
 - No MCP tool exposes the filesystem or raw ComfyUI graphs.
 - Expensive/destructive tools require `confirm=true`.

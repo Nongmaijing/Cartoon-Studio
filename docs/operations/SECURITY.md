@@ -15,7 +15,8 @@
 - Raw tokens are shown once.
 - Tokens can be revoked.
 - FastMCP's `TokenVerifier` validates the bearer token and scopes.
-- The server is a resource server; it does not implement a full OAuth authorization server. Use a bearer-capable connector or an OAuth proxy if required by the ChatGPT connector.
+- `MCP_AUTH_MODE=none` is an explicit local-testing mode and requires `MCP_ALLOW_UNAUTHENTICATED=true`. It is unsafe on a public endpoint; use a temporary private tunnel and restore bearer mode afterwards.
+- The server is a resource server; it does not implement a full OAuth authorization server. ChatGPT connectors support OAuth or No authentication, not static bearer tokens. Use no-auth mode behind a private tunnel for local testing, or an OAuth-aware proxy for ongoing use.
 
 ## Secrets
 

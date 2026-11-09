@@ -8,17 +8,29 @@
 
 ## Authentication
 
-- FastMCP `TokenVerifier` validates bearer tokens.
-- Token sources:
-  1. `MCP_BEARER_TOKEN` environment variable.
-  2. Hashed tokens in `mcp_tokens`, created by `POST /api/v1/mcp/tokens`.
-- The raw token is shown only once at creation.
-- Tokens have scopes (`production` by default) and can be revoked.
-- FastMCP exposes resource metadata for protected MCP endpoints.
+Two modes are supported:
+
+- `MCP_AUTH_MODE=bearer` (default):
+  - FastMCP `TokenVerifier` validates bearer tokens.
+  - Token sources:
+    1. `MCP_BEARER_TOKEN` environment variable.
+    2. Hashed tokens in `mcp_tokens`, created by `POST /api/v1/mcp/tokens`.
+  - The raw token is shown only once at creation.
+  - Tokens have scopes (`production` by default) and can be revoked.
+  - FastMCP exposes resource metadata for protected MCP endpoints.
+- `MCP_AUTH_MODE=none` (explicit local-testing mode):
+  - Requires `MCP_ALLOW_UNAUTHENTICATED=true`; the server refuses to start otherwise.
+  - Used for ChatGPT "No authentication" connectors behind a private tunnel.
+  - Any client that can reach the endpoint can control production. Restore bearer mode afterwards.
+
+Transport host/origin validation:
+- `MCP_PUBLIC_URL` host is automatically allowed.
+- `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` add comma-separated tunnel values.
+- Unknown Host headers are rejected with HTTP 421.
 
 ### OAuth status
 
-The server is a **resource server** with bearer-token authentication. It does not implement a full OAuth authorization server. ChatGPT connector/account requirements vary. If the connector requires OAuth, use a connector that supports a bearer token or place an OAuth authorization server/reverse proxy in front of `/mcp`. Do not claim OAuth is active unless that proxy is configured.
+The server is a **resource server**. It does not implement a full OAuth authorization server. ChatGPT custom connectors support OAuth or No authentication, but not a static bearer token. Use `MCP_AUTH_MODE=none` behind a private tunnel for local testing, or place an OAuth-aware proxy/identity provider in front of `/mcp` for ongoing use. Do not claim OAuth is active unless that proxy is configured.
 
 ## Tool model
 

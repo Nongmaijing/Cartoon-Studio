@@ -17,7 +17,10 @@
 | `MCP_HOST` / `MCP_PORT` | No | Default `127.0.0.1:8020`. |
 | `MCP_PUBLIC_URL` | For remote connectors | HTTPS tunnel URL used in MCP/OAuth metadata. |
 | `MCP_BEARER_TOKEN` | For MCP HTTP | Bearer token accepted by the MCP server. |
-| `MCP_AUTH_MODE` | No | `bearer`. |
+| `MCP_AUTH_MODE` | No | `bearer` (default) or `none` (local ChatGPT testing only). |
+| `MCP_ALLOW_UNAUTHENTICATED` | Required for `none` | Safety guard; must be `true` or the MCP server refuses to start. |
+| `MCP_ALLOWED_HOSTS` | For tunnels | Comma-separated extra Host header values accepted by the MCP transport. |
+| `MCP_ALLOWED_ORIGINS` | For tunnels | Comma-separated extra Origin values accepted by the MCP transport. |
 | `ALLOW_CLOUD_GENERATION` | No | Enables opt-in cloud image provider. Default false. |
 | `OPENAI_IMAGE_MODEL` | No | Cloud image model, default `gpt-image-1` in the adapter example. |
 | `ENABLE_AI_QC` | No | Reserved for AI-assisted QC; deterministic QC works without it. |

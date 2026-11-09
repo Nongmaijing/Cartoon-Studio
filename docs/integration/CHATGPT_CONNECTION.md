@@ -1,19 +1,38 @@
 # Connecting ChatGPT to Cartoon Studio (MCP)
 
-## What is already implemented
+## Important correction about authentication
 
-- MCP server on `http://127.0.0.1:8020/mcp`.
-- Official MCP Python SDK, streamable HTTP transport.
-- Bearer-token authentication backed by `MCP_BEARER_TOKEN` or hashed `mcp_tokens`.
-- 56 tools, 4 resources, 2 prompts.
-- Structured results, confirmation gates, audit logs and timeouts.
-- Verified with an MCP client: initialize, list_tools, call_tool, shared project reads and writes.
+ChatGPT custom MCP connectors support these authentication modes:
 
-## What requires your account-side action
+- **OAuth**
+- **No authentication**
+- **OAuth or no authentication**
 
-ChatGPT custom connector availability and UI labels depend on your ChatGPT plan, workspace policy and current OpenAI product UI. This server cannot complete those account-side steps for you. The server implementation is ready; the connection must be created in ChatGPT.
+ChatGPT **does not** accept a static bearer token / custom API key for a custom
+MCP connector. That means the Cartoon Studio bearer token is not something you
+can paste into the ChatGPT connector UI.
 
-## Step 1 — start the backend
+Cartoon Studio therefore supports two practical paths:
+
+| Path | Security | Effort | Use case |
+|---|---|---|---|
+| A. No-auth mode behind a private tunnel | Low — anyone with the URL can control production | Low | Local testing on a trusted machine |
+| B. OAuth-aware proxy | High | Medium/high | Ongoing or remote use |
+| C. Bearer-capable MCP client | High | Low | Codex/Claude/Cursor/Python instead of ChatGPT |
+
+Also note: custom MCP server connections are currently a **ChatGPT Business /
+Enterprise / Edu** feature on ChatGPT web. Plan availability and UI labels can
+change. If your account does not show "Add custom MCP server", your plan or
+workspace policy does not allow it.
+
+---
+
+## Path A — local ChatGPT test with no authentication
+
+This is the fastest way to prove the connection. It disables MCP authentication,
+so only do it behind a private/temporary tunnel and turn it back off afterwards.
+
+### 1. Start the backend
 
 ```powershell
 cd D:\bro\CartoonStudio
@@ -23,90 +42,195 @@ cd D:\bro\CartoonStudio
 Verify:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8010/api/v1/health
+Invoke-RestMethod http://127.0.0.1:8010/api/health
 ```
 
-## Step 2 — create an MCP token
+### 2. Start an HTTPS tunnel to the MCP port
 
-Option A — environment variable:
-
-```powershell
-# Put this in D:\bro\CartoonStudio\.env
-MCP_BEARER_TOKEN=replace-with-a-long-random-secret
-```
-
-Option B — database token:
-
-```powershell
-$token = Invoke-RestMethod -Method Post `
-  -Uri http://127.0.0.1:8010/api/v1/mcp/tokens `
-  -ContentType "application/json" `
-  -Body '{"name":"chatgpt","scopes":"production"}'
-$token.token
-```
-
-The raw token is shown once. Store it securely.
-
-## Step 3 — start the MCP server
-
-```powershell
-cd D:\bro\CartoonStudio
-.\scripts\start_mcp.bat
-```
-
-Verify:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8020/health
-```
-
-## Step 4 — expose HTTPS
-
-ChatGPT requires a reachable HTTPS endpoint for a remote connector. Use a tunnel:
-
-### Cloudflare Tunnel
+Cloudflare quick tunnel:
 
 ```powershell
 cloudflared tunnel --url http://127.0.0.1:8020
 ```
 
-### ngrok
+or ngrok:
 
 ```powershell
 ngrok http 8020
 ```
 
-Copy the public HTTPS URL. Set it in `.env` and restart MCP:
+Copy the public HTTPS host, for example:
+
+```
+https://random-words.trycloudflare.com
+```
+
+### 3. Configure no-auth mode
+
+Edit `D:\bro\CartoonStudio\.env`:
 
 ```env
-MCP_PUBLIC_URL=https://your-public-host.example
+MCP_PUBLIC_URL=https://random-words.trycloudflare.com
+MCP_AUTH_MODE=none
+MCP_ALLOW_UNAUTHENTICATED=true
+MCP_ALLOWED_HOSTS=random-words.trycloudflare.com
+MCP_ALLOWED_ORIGINS=https://random-words.trycloudflare.com
 ```
 
-The MCP endpoint is:
+`MCP_ALLOW_UNAUTHENTICATED=true` is a deliberate safety guard. The MCP server
+refuses to start in `none` mode without it.
+
+If the tunnel host changes, update `MCP_PUBLIC_URL`, `MCP_ALLOWED_HOSTS` and
+`MCP_ALLOWED_ORIGINS` and restart MCP.
+
+### 4. Restart MCP
+
+```powershell
+cd D:\bro\CartoonStudio
+.\scripts\stop_all.bat
+.\scripts\start_all.bat
+.\scripts\start_mcp.bat
+```
+
+Or directly:
+
+```powershell
+cd D:\bro\CartoonStudio\backend
+.\.venv\Scripts\python.exe run_mcp.py --transport streamable-http --host 127.0.0.1 --port 8020
+```
+
+Verify through the tunnel:
+
+```powershell
+Invoke-RestMethod https://random-words.trycloudflare.com/health
+```
+
+Expected:
+
+```json
+{"status":"ok","server":"cartoon-studio-mcp","tools":56,"auth":"none"}
+```
+
+Also verify the MCP endpoint is reachable:
 
 ```
-https://your-public-host.example/mcp
+https://random-words.trycloudflare.com/mcp
 ```
 
-Health:
+### 5. Add the connector in ChatGPT
+
+The exact labels depend on your ChatGPT version:
+
+- **Newer UI:** open `https://chatgpt.com/plugins`, select **+**, then
+  **Add custom MCP server**.
+- **Workspace UI:** **Workspace settings → Apps → Create**.
+- **User UI:** **Settings → Apps → Create**.
+
+Fill in:
+
+| Field | Value |
+|---|---|
+| Name | `Cartoon Studio` |
+| Description | `Local cartoon production controller` |
+| Connection | `https://random-words.trycloudflare.com/mcp` |
+| Authentication | **No authentication** |
+
+Then:
+
+1. Acknowledge the risk warning.
+2. Select **Create as a plugin** / **Create**.
+3. Run **Scan Tools** and wait for the 56 tools to appear.
+4. Install/enable the plugin for your account or workspace.
+
+### 6. Use it in a chat
+
+Type `@` in the message box and select **Cartoon Studio**, then ask:
 
 ```
-https://your-public-host.example/health
+List my Cartoon Studio projects.
 ```
 
-## Step 5 — create the ChatGPT connector
+or:
 
-In the ChatGPT workspace/connector settings:
+```
+Open project f892aded525b and show me the episode status.
+```
 
-1. Create a custom connector / MCP integration.
-2. URL: `https://your-public-host.example/mcp`.
-3. Authentication: **Bearer token**.
-4. Paste the MCP token.
-5. Save and allow the connector.
+ChatGPT will ask for confirmation before write actions by default. Cartoon
+Studio additionally requires `confirm=true` for expensive/destructive tools.
 
-The exact menu labels and plan restrictions can change. If your connector requires OAuth rather than a bearer token, place an OAuth authorization server/reverse proxy in front of `/mcp` or use a connector that supports bearer authentication. The Cartoon Studio MCP server is a resource server; it does not claim a full OAuth authorization-server implementation.
+### 7. Re-secure immediately after testing
 
-## Step 6 — test from Python
+Stop the tunnel, then restore bearer mode in `.env`:
+
+```env
+MCP_AUTH_MODE=bearer
+# remove MCP_ALLOW_UNAUTHENTICATED or set it to false
+```
+
+Restart MCP. Confirm:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8020/health
+```
+
+should again report `"auth": "bearer"`.
+
+---
+
+## Path B — OAuth-aware proxy (recommended for ongoing use)
+
+ChatGPT expects an OAuth 2.1 authorization flow with discovery metadata, PKCE,
+and refresh-token support. Cartoon Studio does **not** currently implement a full
+OAuth authorization server. Do not claim OAuth is active unless you configure a
+proxy or identity provider.
+
+A practical pattern is:
+
+```
+ChatGPT
+  -> HTTPS OAuth-aware proxy / identity provider
+  -> authorized request + injected upstream credential
+  -> Cartoon Studio MCP (bearer mode)
+```
+
+The proxy handles ChatGPT's OAuth discovery/authorization/token flow, then adds
+the Cartoon Studio bearer token (or a signed JWT the MCP server trusts) to the
+upstream MCP request.
+
+Two implementation options:
+
+1. **OAuth proxy that injects the existing bearer token.** No Cartoon Studio code
+   change is needed. Configure the proxy to forward to
+   `http://127.0.0.1:8020/mcp` and add:
+   `Authorization: Bearer <MCP token>`.
+2. **OAuth provider + JWT verification in Cartoon Studio.** Extend
+   `CartoonTokenVerifier` to validate issuer, audience, expiry and scopes from
+   your provider's JWKS, then use the provider's discovery metadata for
+   ChatGPT. This is a code change and has not been implemented.
+
+Requirements for the OAuth route:
+
+- Public HTTPS endpoint ending in `/mcp`.
+- OAuth discovery endpoint:
+  `/.well-known/oauth-authorization-server` or
+  `/.well-known/openid-configuration`.
+- Authorization code flow with PKCE.
+- Refresh tokens (`offline_access` where applicable).
+- Correct issuer/audience validation.
+- Access logging that does not store tokens.
+
+If you want, the next implementation step is to add an OAuth provider adapter
+and JWT verification to the MCP server.
+
+---
+
+## Path C — use a bearer-capable MCP client now
+
+If you do not need ChatGPT specifically, the existing bearer-token server works
+with clients that support custom headers.
+
+### Python client
 
 ```python
 import asyncio
@@ -130,28 +254,53 @@ async def main():
 asyncio.run(main())
 ```
 
-## Confirmations
+Create a token:
 
-Expensive/destructive tools require `confirm=true`:
+```powershell
+$token = Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8010/api/v1/mcp/tokens `
+  -ContentType "application/json" `
+  -Body '{"name":"local-client","scopes":"production"}'
+$token.token
+```
 
-- `start_production`
-- `cancel_production`
-- `regenerate_failed_scenes`
-- `render_episode`
-- `export_episode`
-- `delete_episode`
-- `generate_character_sheet`
-- `generate_scene_image`
-- `regenerate_scene`
-- `animate_scene`
-- `regenerate_animation`
+The raw token is shown once. Clients such as Codex CLI, Claude Desktop, Cursor
+and other MCP-capable tools can use the same endpoint and Authorization header.
 
-Without `confirm=true`, the tool returns `confirmation_required` and does not execute.
+---
 
-## Security notes
+## Secure MCP Tunnel option
 
-- Do not paste the MCP token into public chat logs.
-- Rotate or revoke tokens if exposed:
-  `POST /api/v1/mcp/tokens/{id}/revoke`.
-- Keep the backend, MCP server and tunnel on trusted infrastructure.
-- The MCP server never exposes the filesystem or raw ComfyUI execution.
+If your ChatGPT plan offers **Secure MCP Tunnel**, you can avoid exposing port
+8020 publicly:
+
+1. Create a tunnel in OpenAI Platform tunnel settings.
+2. Run `tunnel-client` on this machine with access to
+   `http://127.0.0.1:8020`.
+3. In ChatGPT, choose **Tunnel** and select the tunnel instead of a public URL.
+4. Authentication still applies at the MCP layer. Use no-auth mode only for
+   local testing, or put OAuth in front for ongoing use.
+
+The tunnel keeps the network path private, but it does not replace MCP
+authentication/authorization.
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| ChatGPT has no "Add custom MCP server" option | Custom MCP is a Business/Enterprise/Edu feature; check plan/workspace policy |
+| ChatGPT scan fails with 401 | The connector is using OAuth/no-auth but MCP is still in bearer mode. Set `MCP_AUTH_MODE=none` with the guard for local testing |
+| ChatGPT scan fails with 421 Invalid Host header | Add the tunnel host to `MCP_PUBLIC_URL`, `MCP_ALLOWED_HOSTS`, `MCP_ALLOWED_ORIGINS`, then restart MCP |
+| Tunnel URL works in a browser but not ChatGPT | Use the exact `/mcp` path and HTTPS URL |
+| Health says `"auth":"none"` and you are done testing | Restore `MCP_AUTH_MODE=bearer`, remove the no-auth guard, restart MCP, stop the tunnel |
+| Tools appear but writes fail | ChatGPT requires confirmation for write actions; Cartoon Studio also requires `confirm=true` for expensive/destructive tools |
+| No OpenAI key | The MCP/ChatGPT path does not need OpenAI. Only the in-app AI Director does |
+
+## Security warning
+
+No-auth mode means any client that can reach the tunnel can create projects,
+queue GPU work, start production, render episodes, or archive data. Use it only
+on a trusted machine, with a temporary tunnel, for a short test. Restore bearer
+mode and stop the tunnel immediately afterwards.

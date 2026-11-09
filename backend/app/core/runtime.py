@@ -30,6 +30,11 @@ def openai_settings() -> dict[str, Any]:
     }
 
 
+def _csv_env(name: str) -> list[str]:
+    value = _env(name)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 def mcp_settings() -> dict[str, Any]:
     config = load_config()
     mcp = config.get("mcp") or {}
@@ -39,7 +44,10 @@ def mcp_settings() -> dict[str, Any]:
         "public_url": _env("MCP_PUBLIC_URL", str(mcp.get("public_url") or "")),
         "transport": _env("MCP_TRANSPORT", str(mcp.get("transport") or "streamable-http")),
         "bearer_token": _env("MCP_BEARER_TOKEN"),
-        "auth_mode": _env("MCP_AUTH_MODE", str(mcp.get("auth_mode") or "bearer")),
+        "auth_mode": _env("MCP_AUTH_MODE", str(mcp.get("auth_mode") or "bearer")).lower(),
+        "allow_unauthenticated": _env_bool("MCP_ALLOW_UNAUTHENTICATED", False),
+        "allowed_hosts": _csv_env("MCP_ALLOWED_HOSTS"),
+        "allowed_origins": _csv_env("MCP_ALLOWED_ORIGINS"),
         "enabled": _env_bool("MCP_ENABLED", bool(mcp.get("enabled", False))),
     }
 

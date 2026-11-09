@@ -48,7 +48,7 @@ The backend re-runs migrations, marks interrupted episode exports, and resumes p
 2. Start a tunnel (Cloudflare Tunnel or ngrok) to port 8020.
 3. Set `MCP_PUBLIC_URL` to the HTTPS tunnel URL.
 4. Restart MCP.
-5. Configure the ChatGPT custom connector to `https://<public-host>/mcp` with the bearer token.
+5. Configure the ChatGPT custom connector to `https://<public-host>/mcp` with **No authentication** (local test mode) or OAuth (proxy). ChatGPT does not accept a static bearer token. See `docs/integration/CHATGPT_CONNECTION.md`.
 
 No inbound firewall rule is required when using a tunnel.
 

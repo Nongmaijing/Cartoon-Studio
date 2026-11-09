@@ -34,8 +34,9 @@ Copy `.env.example` to `.env` at the repository root and fill in:
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (a model available to your account)
-- `MCP_BEARER_TOKEN` or create a DB token
+- `MCP_BEARER_TOKEN` or create a DB token (bearer mode)
 - `MCP_PUBLIC_URL` when using a tunnel
+- For local ChatGPT testing only: `MCP_AUTH_MODE=none` + `MCP_ALLOW_UNAUTHENTICATED=true` + tunnel host in `MCP_ALLOWED_HOSTS`
 
 Do not commit `.env`.
 

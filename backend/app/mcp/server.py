@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import inspect
+import logging
 from typing import Any
+from urllib.parse import urlparse
 
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -14,7 +16,8 @@ from ..core.runtime import base_url, mcp_settings
 from ..core.security import verify_mcp_token
 from ..services import project_service
 from ..services import episode_service, production_service
-from ..services.errors import ServiceError
+
+logger = logging.getLogger(__name__)
 
 TYPE_MAP = {
     "string": "str",
@@ -81,15 +84,63 @@ async def _execute_tool(name: str, payload: dict[str, Any], idempotency_key: str
     return await tool_registry.execute(name, payload, context, idempotency_key=idempotency_key)
 
 
+def _transport_security(public_url: str, allowed_hosts: list[str], allowed_origins: list[str]) -> TransportSecuritySettings:
+    hosts = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+    origins = ["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"]
+    parsed = urlparse(public_url) if public_url else None
+    if parsed and parsed.netloc:
+        hosts.append(parsed.netloc)
+    if parsed and parsed.scheme and parsed.netloc:
+        origins.append(f"{parsed.scheme}://{parsed.netloc}")
+    # ChatGPT/OpenAI web origins, in case an Origin header is present.
+    origins.extend(
+        [
+            "https://chatgpt.com",
+            "https://chat.openai.com",
+            "https://platform.openai.com",
+        ]
+    )
+    for host in allowed_hosts:
+        if host not in hosts:
+            hosts.append(host)
+    for origin in allowed_origins:
+        if origin not in origins:
+            origins.append(origin)
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=hosts,
+        allowed_origins=origins,
+    )
+
+
 def create_mcp_server() -> FastMCP:
     settings = mcp_settings()
     public_url = settings.get("public_url") or base_url().replace("8010", str(settings["port"]))
-    auth = AuthSettings(
-        issuer_url=public_url,
-        resource_server_url=public_url,
-        required_scopes=["production"],
-        validate_token_resource=False,
-    )
+    auth_mode = str(settings.get("auth_mode") or "bearer").lower()
+    if auth_mode not in ("bearer", "none"):
+        raise RuntimeError("MCP_AUTH_MODE must be 'bearer' or 'none'.")
+    if auth_mode == "none" and not settings.get("allow_unauthenticated"):
+        raise RuntimeError(
+            "MCP_AUTH_MODE=none requires MCP_ALLOW_UNAUTHENTICATED=true. "
+            "Only use this behind a private tunnel/allowlist for local ChatGPT testing."
+        )
+
+    auth_kwargs: dict[str, Any] = {}
+    if auth_mode == "bearer":
+        auth = AuthSettings(
+            issuer_url=public_url,
+            resource_server_url=public_url,
+            required_scopes=["production"],
+            validate_token_resource=False,
+        )
+        auth_kwargs = {"token_verifier": CartoonTokenVerifier(), "auth": auth}
+    else:
+        logger.warning(
+            "MCP authentication is DISABLED (MCP_AUTH_MODE=none). "
+            "Any client that can reach the endpoint can control production. "
+            "Use only behind a private tunnel/allowlist and restore bearer auth afterwards."
+        )
+
     mcp = FastMCP(
         "cartoon-studio",
         instructions=(
@@ -100,9 +151,13 @@ def create_mcp_server() -> FastMCP:
         host=settings["host"],
         port=int(settings["port"]),
         streamable_http_path="/mcp",
-        token_verifier=CartoonTokenVerifier(),
-        auth=auth,
         stateless_http=True,
+        transport_security=_transport_security(
+            public_url,
+            list(settings.get("allowed_hosts") or []),
+            list(settings.get("allowed_origins") or []),
+        ),
+        **auth_kwargs,
     )
     for tool in tool_registry.list_tools():
         mcp.add_tool(_make_tool_function(tool), name=tool.name, description=tool.description)
@@ -114,7 +169,7 @@ def create_mcp_server() -> FastMCP:
                 "status": "ok",
                 "server": "cartoon-studio-mcp",
                 "tools": len(tool_registry.list_tools()),
-                "auth": "bearer",
+                "auth": auth_mode,
             }
         )
 

@@ -35,7 +35,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Health, structured errors, timeouts, idempotency.
 - [x] 56 tools generated from the shared registry.
 - [x] Resources and prompts.
-- [~] OAuth: resource-server bearer authentication implemented; full authorization-server/OAuth proxy is a deployment step, not claimed as active.
+- [~] OAuth: resource-server bearer authentication implemented; explicit no-auth local testing mode added for ChatGPT; full OAuth proxy is a deployment step, not claimed as active.
 - [x] Verified with a real MCP client (`initialize`, `list_tools`, `call_tool`) and shared state.
 
 ## Phase 5 — OpenAI AI Director
@@ -85,7 +85,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Rate limiting for AI/production.
 - [x] Audit logging/redaction.
 - [x] Prompt-injection guard.
-- [~] Full OAuth authorization server: not implemented; documented as a proxy/deployment step.
+- [~] Full OAuth authorization server: not implemented; ChatGPT can use no-auth mode behind a private tunnel for local testing, or an OAuth-aware proxy for ongoing use.
 
 ## Phase 11 — Tests
 - [x] Workflow transitions.
@@ -95,7 +95,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Mocked production task execution.
 - [x] Mocked OpenAI Responses tool loop.
 - [x] Existing API regression checks performed manually.
-- Result: **17 passed**.
+- Result: **20 passed**.
 
 ## Phase 12 — Documentation and deployment
 - [x] Architecture, development, integration and operations docs.

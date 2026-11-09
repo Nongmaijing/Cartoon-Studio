@@ -152,19 +152,21 @@ Transports:
 
 Security:
 
-- `MCP_BEARER_TOKEN` is required for HTTP mode.
-- Requests without a valid token are rejected.
+- `MCP_BEARER_TOKEN` (or a hashed `mcp_tokens` token) is required in default bearer mode.
+- `MCP_AUTH_MODE=none` is an explicit local-testing exception and requires `MCP_ALLOW_UNAUTHENTICATED=true`.
+- Requests without a valid token are rejected in bearer mode.
 - Tools use the same registry and permission checks as the AI Director.
 - No raw filesystem or ComfyUI access is exposed.
 - Destructive operations require `confirm=true`.
 - Responses redact secrets and internal paths.
-- `MCP_PUBLIC_URL` is used in discovery/documentation; a tunnel (Cloudflare Tunnel, ngrok, Tailscale Funnel) provides HTTPS.
+- `MCP_PUBLIC_URL` is used in discovery/documentation; a tunnel (Cloudflare Tunnel, ngrok, Secure MCP Tunnel) provides HTTPS.
 
 OAuth:
 
 - A minimal token verifier is implemented for bearer tokens.
-- ChatGPT connector account-side OAuth requirements vary by plan/connector type.
-- If the connector requires OAuth, configure the connector to use the bearer token or place an OAuth reverse proxy in front of the MCP server.
+- ChatGPT custom connectors support OAuth or No authentication; they do not accept a static bearer token.
+- For local testing, `MCP_AUTH_MODE=none` + `MCP_ALLOW_UNAUTHENTICATED=true` behind a private tunnel enables ChatGPT's "No authentication" option.
+- For ongoing use, place an OAuth-aware reverse proxy/identity provider in front of the MCP server so ChatGPT performs OAuth while the proxy injects the upstream bearer credential or a signed JWT.
 - The server exposes health and metadata; full OAuth authorization-server implementation is documented as an optional extension, not claimed as active.
 
 ## 8. Shared memory

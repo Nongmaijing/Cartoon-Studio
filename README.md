@@ -41,7 +41,7 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | AI Director page with chat, SSE progress, production control, approvals | Working — live OpenAI calls require a key/model |
 | MCP server (official SDK, streamable HTTP, bearer auth, 56 tools) | Working and tested |
 | Production memory, approvals, character/asset versions, audit logs | Working |
-| Automated tests | **17 passed** |
+| Automated tests | **20 passed** |
 
 Verified on this machine: SD 1.5 jobs completed in seconds, saved under `outputs/<project>/<job>/`, and served at `/api/assets/{id}/file`. A scene with a cast and background generated a 512×288 keyframe, then a 320×192 / 5-frame Wan image-to-video clip using that keyframe as frame one (uploaded to ComfyUI's input root). Both outputs were copied into the project, attached to the scene as `keyframe` / `video`, and the clip was confirmed with ffprobe (`h264`, 320×192, 5 frames). In Phase 4 a character canonical image drove an SD 1.5 img2img job at denoise 0.55 (completed, attached as a reference), pose mode correctly reported an image-to-image fallback because no ControlNet model is installed, and a scene keyframe used a cast reference through img2img. AnimateDiff and ControlNet are reported as not runnable with their missing nodes/models named. In Phase 5 Windows SAPI was detected with Microsoft David and Zira, a character voice was saved, a scene line was synthesized to a 2.129 s WAV at 22.05 kHz, a narrator line and imported script lines were generated, and a duplicated project retained dialogue lines, voice settings and remapped audio files. In Phase 6 a two-segment 10-second episode (image + video, 3 dialogue tracks, fade transitions, soft subtitles) exported to 1280×720 H.264/AAC MP4 in **1.53 s** of FFmpeg time (**2.35 s** end-to-end including polling), producing a **1.68 MB** file with H.264 video, AAC stereo audio and `mov_text` subtitles; ffprobe confirmed 10.000 s duration. A duplicated project retained the episode timeline, remapped scene/audio assets and a playable copied MP4.
 
@@ -165,7 +165,7 @@ cd D:\bro\CartoonStudio\backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Current result: **17 passed**.
+Current result: **20 passed**.
 
 ---
 
@@ -476,7 +476,7 @@ $token = Invoke-RestMethod -Method Post `
 $token.token   # shown once; store securely
 ```
 
-Connect ChatGPT through an HTTPS tunnel to port 8020 and use `https://<public-host>/mcp` with the bearer token. See `docs/integration/CHATGPT_CONNECTION.md`.
+ChatGPT custom connectors support OAuth or "No authentication"; they do **not** accept a static bearer token. For local testing, Cartoon Studio supports an explicit no-auth mode behind a private tunnel (`MCP_AUTH_MODE=none` + `MCP_ALLOW_UNAUTHENTICATED=true` + matched `MCP_PUBLIC_URL`/host). For ongoing use, put an OAuth-aware proxy in front of the MCP server. See `docs/integration/CHATGPT_CONNECTION.md` for both paths, the exact `.env` values, the ChatGPT connector fields, and the security rollback steps.
 
 ### AI/MCP limitations (honest status)
 
@@ -624,7 +624,7 @@ Connect ChatGPT through an HTTPS tunnel to port 8020 and use `https://<public-ho
 | Export is slow | 720p H.264 is CPU-bound; lower resolution/FPS or shorten segments. The sample 10 s episode exports in about 1.5 s of FFmpeg time |
 | Episode video does not play in a browser | Use the Download MP4 link or a player with H.264/AAC support; the file also contains a soft subtitle track |
 | AI Director returns 503 | `OPENAI_API_KEY`/`OPENAI_MODEL` are not set; add them to `.env` and restart the backend |
-| MCP health works but ChatGPT cannot connect | ChatGPT needs a public HTTPS URL; tunnel port 8020, set `MCP_PUBLIC_URL`, and use `https://<host>/mcp` with the bearer token |
+| MCP health works but ChatGPT cannot connect | ChatGPT connectors use OAuth or No authentication, not a static bearer token. For local testing use `MCP_AUTH_MODE=none` + `MCP_ALLOW_UNAUTHENTICATED=true` behind a tunnel and add the tunnel host to `MCP_PUBLIC_URL`/`MCP_ALLOWED_HOSTS`; for ongoing use configure OAuth. See `docs/integration/CHATGPT_CONNECTION.md` |
 | MCP returns 401 | Missing/wrong `Authorization: Bearer <token>`, revoked token, or MCP process not restarted after changing the token |
 | Tool returns `confirmation_required` | Expected for expensive/destructive tools; call again with `confirm=true` only after explicit approval |
 | Production run does not start | Episode and scenes must exist, the plan needs scene IDs, and `confirm=true` is required |
@@ -656,7 +656,7 @@ Connect ChatGPT through an HTTPS tunnel to port 8020 and use `https://<public-ho
 | 8 | Automated production and deterministic QC | Complete; AI-assisted QC disabled by default |
 | 9 | AI Director frontend | Complete, production build passes |
 | 10 | Security, token auth, redaction, audit, rate limits | Complete; full OAuth server not implemented |
-| 11 | Automated tests | **17 passed** |
+| 11 | Automated tests | **20 passed** |
 | 12 | Documentation, `.env.example`, startup scripts | Complete |
 
 **All six production phases and the AI integration phases are implemented.** The production pipeline is fully usable without OpenAI. The AI layers are real backend integrations, not mocks, in production code; the automated tests mock external services by design.

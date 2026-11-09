@@ -42,12 +42,13 @@ Fix `.env`, restart backend, then check `/api/v1/ai/health`. The model ID must b
 
 ## MCP health works but ChatGPT cannot connect
 
-- ChatGPT needs a public HTTPS URL, not `127.0.0.1`.
-- Start a tunnel and set `MCP_PUBLIC_URL`.
+- ChatGPT needs a public HTTPS URL or Secure MCP Tunnel, not `127.0.0.1`.
+- Start a tunnel and set `MCP_PUBLIC_URL`, `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS`.
 - Endpoint must include `/mcp`.
-- Use the bearer token.
-- If the connector requires OAuth, use a bearer-capable connector or an OAuth proxy.
-- Check `/health` through the tunnel.
+- ChatGPT connectors use OAuth or No authentication; they do not accept a static bearer token.
+- For local testing, set `MCP_AUTH_MODE=none` and `MCP_ALLOW_UNAUTHENTICATED=true`, select **No authentication** in ChatGPT, then restore bearer mode.
+- For ongoing use, configure an OAuth-aware proxy.
+- Check `/health` through the tunnel; it reports the active auth mode.
 
 ## MCP returns 401
 
