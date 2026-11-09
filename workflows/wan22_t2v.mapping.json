@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "name": "Wan 2.2 TI2V-5B text-to-video",
+  "description": "Official Wan 2.2 TI2V-5B text-to-video graph with conservative tiled VAE decode for 6 GB VRAM.",
+  "engine": "wan22",
+  "kind": "video",
+  "roles": {
+    "model": {
+      "node": "37",
+      "class": "UNETLoader",
+      "input": "unet_name"
+    },
+    "clip": {
+      "node": "38",
+      "class": "CLIPLoader",
+      "input": "clip_name"
+    },
+    "vae": {
+      "node": "39",
+      "class": "VAELoader",
+      "input": "vae_name"
+    },
+    "shift": {
+      "node": "48",
+      "class": "ModelSamplingSD3",
+      "input": "shift"
+    },
+    "positive_prompt": {
+      "node": "6",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "negative_prompt": {
+      "node": "7",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "width": {
+      "node": "55",
+      "class": "Wan22ImageToVideoLatent",
+      "input": "width"
+    },
+    "height": {
+      "node": "55",
+      "class": "Wan22ImageToVideoLatent",
+      "input": "height"
+    },
+    "length": {
+      "node": "55",
+      "class": "Wan22ImageToVideoLatent",
+      "input": "length"
+    },
+    "batch_size": {
+      "node": "55",
+      "class": "Wan22ImageToVideoLatent",
+      "input": "batch_size"
+    },
+    "seed": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "seed"
+    },
+    "steps": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "steps"
+    },
+    "cfg": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "cfg"
+    },
+    "sampler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "sampler_name"
+    },
+    "scheduler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "scheduler"
+    },
+    "denoise": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "denoise"
+    },
+    "fps": {
+      "node": "57",
+      "class": "CreateVideo",
+      "input": "fps"
+    },
+    "filename_prefix": {
+      "node": "58",
+      "class": "SaveVideo",
+      "input": "filename_prefix"
+    },
+    "output_format": {
+      "node": "58",
+      "class": "SaveVideo",
+      "input": "format"
+    }
+  },
+  "model_checks": [
+    {
+      "role": "model",
+      "loader": "UNETLoader",
+      "input": "unet_name"
+    },
+    {
+      "role": "clip",
+      "loader": "CLIPLoader",
+      "input": "clip_name"
+    },
+    {
+      "role": "vae",
+      "loader": "VAELoader",
+      "input": "vae_name"
+    }
+  ],
+  "output_nodes": [
+    "58"
+  ]
+}

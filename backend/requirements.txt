@@ -1,0 +1,22 @@
+# Cartoon Studio backend runtime dependencies
+# Starlette and sse-starlette are pinned to remain compatible with FastAPI 0.115.x.
+fastapi==0.115.6
+starlette==0.41.3
+uvicorn[standard]==0.54.0
+httpx==0.28.1
+websockets==14.1
+psutil==6.1.1
+PyYAML==6.0.2
+pydantic==2.14.3
+python-multipart==0.0.33
+python-dotenv==1.2.4
+
+# Local neural TTS
+kokoro-onnx==0.6.1
+numpy==2.4.6
+
+# AI Director and MCP
+openai==3.48.0
+mcp==1.30.0
+sse-starlette==2.1.3
+jsonschema==4.26.0

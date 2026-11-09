@@ -1,0 +1,83 @@
+{
+  "comfyui": {
+    "server_url": "http://127.0.0.1:8188",
+    "install_path": "C:\\Users\\pagau\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Installs\\Waikhom Studio\\ComfyUI",
+    "output_dir": "D:\\bro\\ComfyUI\\Output",
+    "models_dirs": [
+      "D:\\bro\\ComfyUI\\Models",
+      "C:\\Users\\pagau\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models",
+      "C:\\Users\\pagau\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Installs\\Waikhom Studio\\ComfyUI\\models"
+    ],
+    "auto_discover": true,
+    "request_timeout_seconds": 120
+  },
+  "paths": {
+    "workflow_dir": "D:\\bro\\CartoonStudio\\workflows",
+    "output_dir": "D:\\bro\\CartoonStudio\\outputs",
+    "assets_dir": "D:\\bro\\CartoonStudio\\assets",
+    "projects_dir": "D:\\bro\\CartoonStudio\\projects",
+    "logs_dir": "D:\\bro\\CartoonStudio\\logs",
+    "data_dir": "D:\\bro\\CartoonStudio\\data"
+  },
+  "generation": {
+    "default_workflow": "sd15_txt2img",
+    "width": 768,
+    "height": 768,
+    "steps": 28,
+    "cfg": 6.5,
+    "sampler": "dpmpp_2m",
+    "scheduler": "karras",
+    "batch_size": 1,
+    "seed": -1,
+    "negative_prompt": "photo, photorealistic, 3d render, blurry, low quality, deformed, extra limbs, extra fingers, extra tails, duplicate body parts, floating limbs, malformed paws, bad anatomy, watermark, text, signature, artist signature, logo, initials, monogram, cropped, jpeg artifacts",
+    "timeout_seconds": 1800,
+    "max_concurrent_jobs": 1
+  },
+  "ffmpeg": {
+    "path": ""
+  },
+  "tts": {
+    "default_engine": "kokoro",
+    "default_voice": "",
+    "preview_text": "Hello! I am ready for my close-up.",
+    "piper_path": "",
+    "piper_model_dir": "",
+    "kokoro_model": "D:\\bro\\CartoonStudio\\tools\\kokoro\\kokoro-v1.0.onnx",
+    "kokoro_voices": "D:\\bro\\CartoonStudio\\tools\\kokoro\\voices-v1.0.bin",
+    "timeout_seconds": 120
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8010
+  },
+  "ui": {
+    "poll_interval_ms": 2000
+  },
+  "ai": {
+    "enabled": true,
+    "model": "",
+    "base_url": "https://api.openai.com/v1",
+    "max_tool_rounds": 8,
+    "timeout_seconds": 120,
+    "max_context_chars": 60000
+  },
+  "mcp": {
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 8020,
+    "public_url": "",
+    "transport": "streamable-http",
+    "auth_mode": "bearer"
+  },
+  "providers": {
+    "allow_cloud": false,
+    "default_image": "comfyui",
+    "default_video": "comfyui",
+    "default_audio": "kokoro",
+    "default_editing": "ffmpeg"
+  },
+  "security": {
+    "rate_limit_per_minute": 60,
+    "require_confirmation": true
+  }
+}

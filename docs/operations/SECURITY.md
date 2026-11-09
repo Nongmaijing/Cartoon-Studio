@@ -1,0 +1,65 @@
+# Security
+
+## Actors
+
+| Actor | Authentication | Scope |
+|---|---|---|
+| Local UI user | Local app (no login) | Full local access |
+| AI Director | Server-side OpenAI key + conversation | Project-scoped production tools |
+| MCP client | Bearer token | Production scope, confirmation gates |
+
+## MCP authentication
+
+- `MCP_BEARER_TOKEN` environment token, or
+- Hashed token in `mcp_tokens`, created by `POST /api/v1/mcp/tokens`.
+- Raw tokens are shown once.
+- Tokens can be revoked.
+- FastMCP's `TokenVerifier` validates the bearer token and scopes.
+- The server is a resource server; it does not implement a full OAuth authorization server. Use a bearer-capable connector or an OAuth proxy if required by the ChatGPT connector.
+
+## Secrets
+
+- `OPENAI_API_KEY`, `MCP_BEARER_TOKEN`, database paths and provider credentials come from `.env`/environment.
+- `.env` is Git-ignored.
+- Tool responses redact keys containing `api_key`, `authorization`, `password`, `secret`, `bearer`.
+- MCP token hashes are stored, not raw tokens.
+
+## Authorization
+
+- Tools validate project/entity ownership through services.
+- MCP tokens carry scopes (`production` by default).
+- Destructive/expensive tools require `confirm=true`.
+- Confirmation is enforced server-side in the tool registry, not only in the UI.
+
+## Prompt injection
+
+- Retrieved project text, asset metadata and external provider responses are treated as data.
+- They are never treated as authorization to execute tools.
+- The AI Director system prompt explicitly instructs the model to follow this rule.
+- The tool registry enforces confirmations independently of model text.
+
+## Rate limiting
+
+- AI message and production-start endpoints use an in-process per-key rate limiter.
+- Configure with `security.rate_limit_per_minute`.
+- MCP tool execution has per-tool timeouts.
+
+## Audit
+
+- Mutating tool calls write to `ai_tool_executions`.
+- Service mutations write to `audit_logs`.
+- Production task transitions are persisted in `production_tasks`.
+
+## Filesystem and ComfyUI
+
+- No MCP tool exposes arbitrary filesystem access.
+- Asset delivery is path-traversal guarded.
+- No raw ComfyUI graph execution or filesystem access is exposed.
+- Absolute paths are not returned in normal tool results; project-relative paths and `/api/assets/{id}/file` URLs are used.
+
+## Cloud privacy
+
+- Cloud image generation is disabled by default.
+- Enable only with `ALLOW_CLOUD_GENERATION=true`.
+- Private assets are not uploaded automatically.
+- Review provider terms and licensing before commercial use.

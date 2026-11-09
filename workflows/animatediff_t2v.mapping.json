@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "name": "AnimateDiff text-to-video",
+  "description": "AnimateDiff Evolved text-to-video using VideoHelperSuite for MP4 output. Requires the AnimateDiff and VideoHelperSuite custom nodes plus a motion model.",
+  "engine": "animatediff",
+  "kind": "video",
+  "roles": {
+    "checkpoint": {
+      "node": "4",
+      "class": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    },
+    "animatediff_model": {
+      "node": "30",
+      "class": "ADE_AnimateDiffLoaderGen1",
+      "input": "model_name"
+    },
+    "positive_prompt": {
+      "node": "6",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "negative_prompt": {
+      "node": "7",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "width": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "width"
+    },
+    "height": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "height"
+    },
+    "length": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "batch_size"
+    },
+    "seed": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "seed"
+    },
+    "steps": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "steps"
+    },
+    "cfg": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "cfg"
+    },
+    "sampler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "sampler_name"
+    },
+    "scheduler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "scheduler"
+    },
+    "denoise": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "denoise"
+    },
+    "fps": {
+      "node": "40",
+      "class": "VHS_VideoCombine",
+      "input": "frame_rate"
+    },
+    "filename_prefix": {
+      "node": "40",
+      "class": "VHS_VideoCombine",
+      "input": "filename_prefix"
+    },
+    "output_format": {
+      "node": "40",
+      "class": "VHS_VideoCombine",
+      "input": "format"
+    }
+  },
+  "model_checks": [
+    {
+      "role": "checkpoint",
+      "loader": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    },
+    {
+      "role": "animatediff_model",
+      "loader": "ADE_AnimateDiffLoaderGen1",
+      "input": "model_name"
+    }
+  ],
+  "output_nodes": [
+    "40"
+  ]
+}

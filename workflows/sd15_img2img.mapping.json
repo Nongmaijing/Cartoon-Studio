@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "name": "SD 1.5 image-to-image (character consistency)",
+  "description": "Re-renders a character reference or pose with SD 1.5 at a chosen denoise strength, keeping the design consistent.",
+  "engine": "sd15",
+  "kind": "image",
+  "roles": {
+    "checkpoint": {
+      "node": "4",
+      "class": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    },
+    "positive_prompt": {
+      "node": "6",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "negative_prompt": {
+      "node": "7",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "input_image": {
+      "node": "10",
+      "class": "LoadImage",
+      "input": "image"
+    },
+    "width": {
+      "node": "11",
+      "class": "ImageScale",
+      "input": "width"
+    },
+    "height": {
+      "node": "11",
+      "class": "ImageScale",
+      "input": "height"
+    },
+    "seed": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "seed"
+    },
+    "steps": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "steps"
+    },
+    "cfg": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "cfg"
+    },
+    "sampler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "sampler_name"
+    },
+    "scheduler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "scheduler"
+    },
+    "denoise": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "denoise"
+    },
+    "filename_prefix": {
+      "node": "9",
+      "class": "SaveImage",
+      "input": "filename_prefix"
+    }
+  },
+  "model_checks": [
+    {
+      "role": "checkpoint",
+      "loader": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    }
+  ],
+  "output_nodes": [
+    "9"
+  ]
+}

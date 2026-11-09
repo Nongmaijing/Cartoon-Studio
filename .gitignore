@@ -1,0 +1,30 @@
+# Local secrets and generated data
+.env
+.env.*
+!.env.example
+*.log
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Local models and generated media
+tools/
+outputs/
+assets/
+backups/
+logs/
+data/
+projects/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

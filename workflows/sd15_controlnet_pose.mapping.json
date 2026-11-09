@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "name": "SD 1.5 ControlNet pose",
+  "description": "Pose-guided SD 1.5 generation using a ControlNet OpenPose model. Requires a ControlNet model file in ComfyUI.",
+  "engine": "sd15",
+  "kind": "image",
+  "roles": {
+    "checkpoint": {
+      "node": "4",
+      "class": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    },
+    "positive_prompt": {
+      "node": "6",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "negative_prompt": {
+      "node": "7",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "input_image": {
+      "node": "10",
+      "class": "LoadImage",
+      "input": "image"
+    },
+    "control_net_name": {
+      "node": "20",
+      "class": "ControlNetLoader",
+      "input": "control_net_name"
+    },
+    "control_strength": {
+      "node": "21",
+      "class": "ControlNetApplyAdvanced",
+      "input": "strength"
+    },
+    "width": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "width"
+    },
+    "height": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "height"
+    },
+    "batch_size": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "batch_size"
+    },
+    "seed": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "seed"
+    },
+    "steps": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "steps"
+    },
+    "cfg": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "cfg"
+    },
+    "sampler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "sampler_name"
+    },
+    "scheduler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "scheduler"
+    },
+    "denoise": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "denoise"
+    },
+    "filename_prefix": {
+      "node": "9",
+      "class": "SaveImage",
+      "input": "filename_prefix"
+    }
+  },
+  "model_checks": [
+    {
+      "role": "checkpoint",
+      "loader": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    },
+    {
+      "role": "control_net_name",
+      "loader": "ControlNetLoader",
+      "input": "control_net_name"
+    }
+  ],
+  "output_nodes": [
+    "9"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "name": "4x UltraSharp upscale",
+  "description": "Upscales an existing image 4x with the 4x-UltraSharp model.",
+  "engine": "upscale",
+  "kind": "image",
+  "roles": {
+    "input_image": {
+      "node": "1",
+      "class": "LoadImage",
+      "input": "image"
+    },
+    "upscale_model": {
+      "node": "2",
+      "class": "UpscaleModelLoader",
+      "input": "model_name"
+    },
+    "filename_prefix": {
+      "node": "4",
+      "class": "SaveImage",
+      "input": "filename_prefix"
+    }
+  },
+  "model_checks": [
+    {
+      "role": "upscale_model",
+      "loader": "UpscaleModelLoader",
+      "input": "model_name"
+    }
+  ],
+  "output_nodes": [
+    "4"
+  ]
+}
