@@ -89,3 +89,14 @@ async def test_episode_created_via_service_is_visible_to_tool():
     result = await tool_registry.execute("get_episode_details", {"episode_id": episode["id"]}, context)
     assert result["ok"] is True
     assert result["episode"]["name"] == "Service Episode"
+
+
+@pytest.mark.asyncio
+async def test_manual_tool_endpoint_keeps_episode_argument():
+    from app.routers.ai_director import execute_tool
+
+    project = project_service.create_project("Manual Tool Project")
+    episode = episode_service.create_episode(project["id"], "Manual Tool Episode")
+    result = await execute_tool("get_episode_assets", {"episode_id": episode["id"]})
+    assert result["ok"] is True, result
+    assert result["episode_id"] == episode["id"]

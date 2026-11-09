@@ -114,11 +114,13 @@ async def tool_executions(conversation_id: str | None = None, limit: int = 100) 
 @router.post("/tools/{tool_name}")
 async def execute_tool(tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Local/manual tool execution for UI debugging and integration tests."""
+    # Context hints must remain in the payload: tools such as get_episode_details
+    # declare project_id/episode_id as their own required arguments.
     context = ToolContext(
         actor=str(payload.pop("actor", "user")),
         conversation_id=payload.pop("conversation_id", None),
-        project_id=payload.pop("project_id", None),
-        episode_id=payload.pop("episode_id", None),
+        project_id=payload.get("project_id"),
+        episode_id=payload.get("episode_id"),
     )
     idempotency_key = payload.pop("idempotency_key", None)
     result = await tool_registry.execute(tool_name, payload, context, idempotency_key=idempotency_key)
