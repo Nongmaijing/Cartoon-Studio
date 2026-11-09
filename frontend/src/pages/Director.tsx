@@ -334,7 +334,9 @@ export default function Director() {
       !window.confirm(
         "Start a public Cloudflare tunnel with MCP authentication disabled?\n\n" +
           "Anyone with the connector URL can control this Cartoon Studio instance. " +
-          `The tunnel and no-auth mode stop automatically after ${tunnelTtl} minutes.`
+          (tunnelTtl === 0
+            ? "The tunnel will stay active until you click Disconnect & secure, or until the backend/cloudflared stops."
+            : `The tunnel and no-auth mode stop automatically after ${tunnelTtl} minutes.`)
       )
     ) {
       return;
@@ -545,6 +547,7 @@ export default function Director() {
                 <option value={120}>2 hours</option>
                 <option value={240}>4 hours</option>
                 <option value={480}>8 hours</option>
+                <option value={0}>Never auto-stop</option>
               </select>
               <button
                 className="btn primary"
@@ -569,8 +572,13 @@ export default function Director() {
         ) : (
           <div className="chatgpt-connect-body">
             <Alert kind="warn">
-              No-auth mode is live. Anyone with this URL can control production. The tunnel stops
-              automatically in {Math.max(0, Math.ceil((tunnel.remaining_seconds ?? 0) / 60))} min.
+              No-auth mode is live. Anyone with this URL can control production.{" "}
+              {tunnel.ttl_minutes === 0
+                ? "No auto-stop is set; click Disconnect & secure when finished."
+                : `The tunnel stops automatically in ${Math.max(
+                    0,
+                    Math.ceil((tunnel.remaining_seconds ?? 0) / 60)
+                  )} min.`}
             </Alert>
             {tunnel.public_reachable === false && (
               <Alert kind="warn">

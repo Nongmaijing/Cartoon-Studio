@@ -29,6 +29,19 @@ DEFAULT_TTL_MINUTES = 30
 MIN_TTL_MINUTES = 5
 MAX_TTL_MINUTES = 480
 
+
+def normalize_ttl_minutes(value: Any) -> int:
+    """0 (or a negative value) means no automatic expiry."""
+    if value is None:
+        return DEFAULT_TTL_MINUTES
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_TTL_MINUTES
+    if minutes <= 0:
+        return 0
+    return max(MIN_TTL_MINUTES, min(MAX_TTL_MINUTES, minutes))
+
 _state: dict[str, Any] = {
     "active": False,
     "public_url": None,
@@ -427,7 +440,8 @@ async def start_tunnel(
                 "cloudflared is not installed. Install it and add it to PATH, then retry."
             )
 
-        ttl = max(MIN_TTL_MINUTES, min(MAX_TTL_MINUTES, int(ttl_minutes or DEFAULT_TTL_MINUTES)))
+        ttl = normalize_ttl_minutes(ttl_minutes)
+        expires_at = time.time() + ttl * 60 if ttl > 0 else None
         port = int(mcp_settings()["port"])
         global _tunnel_proc, _tunnel_drain_task, _mcp_proc
 
@@ -460,7 +474,7 @@ async def start_tunnel(
                     "tunnel_pid": _tunnel_proc.pid,
                     "mcp_pid": _mcp_proc.pid,
                     "started_at": time.time(),
-                    "expires_at": time.time() + ttl * 60,
+                    "expires_at": expires_at,
                     "ttl_minutes": ttl,
                     "public_reachable": public_ok,
                     "message": (
@@ -471,7 +485,8 @@ async def start_tunnel(
                 }
             )
             _persist()
-            _schedule_expiry(ttl * 60)
+            if ttl > 0:
+                _schedule_expiry(ttl * 60)
             log(
                 actor,
                 "start_chatgpt_tunnel",
@@ -565,7 +580,7 @@ async def _status_unlocked() -> dict[str, Any]:
         "mcp_auth": mcp_auth,
         "expires_at": _state.get("expires_at"),
         "remaining_seconds": remaining,
-        "ttl_minutes": _state.get("ttl_minutes") or DEFAULT_TTL_MINUTES,
+        "ttl_minutes": _state.get("ttl_minutes") if _state.get("ttl_minutes") is not None else DEFAULT_TTL_MINUTES,
         "public_reachable": bool(_state.get("public_reachable")),
         "cloudflared_available": cloudflared_path() is not None,
         "warning": (

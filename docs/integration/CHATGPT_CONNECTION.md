@@ -46,7 +46,7 @@ What the button does:
 - restarts MCP with `MCP_AUTH_MODE=none`, `MCP_ALLOW_UNAUTHENTICATED=true`, and the tunnel host allowlist;
 - verifies local and public health;
 - shows the connector URL;
-- auto-stops the tunnel and restores bearer auth after the selected session length (30 minutes to 8 hours; default 30 minutes), or immediately when you click **Disconnect & secure**.
+- auto-stops the tunnel and restores bearer auth after the selected session length (30 minutes to 8 hours; default 30 minutes), or immediately when you click **Disconnect & secure**. Selecting **Never auto-stop** disables the timer; the tunnel then stays active until you disconnect or the backend/cloudflared stops.
 
 Requirements:
 
