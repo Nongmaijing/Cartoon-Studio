@@ -27,7 +27,7 @@ MCP_SCRIPT = BACKEND_DIR / "run_mcp.py"
 TUNNEL_URL_RE = re.compile(r"https://[a-zA-Z0-9][a-zA-Z0-9.-]*\.trycloudflare\.com")
 DEFAULT_TTL_MINUTES = 30
 MIN_TTL_MINUTES = 5
-MAX_TTL_MINUTES = 120
+MAX_TTL_MINUTES = 480
 
 _state: dict[str, Any] = {
     "active": False,

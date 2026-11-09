@@ -57,6 +57,7 @@ export default function Director() {
   const [tunnel, setTunnel] = useState<ChatGPTTunnelStatus | null>(null);
   const [tunnelBusy, setTunnelBusy] = useState(false);
   const [tunnelError, setTunnelError] = useState("");
+  const [tunnelTtl, setTunnelTtl] = useState(30);
   const messagesRef = useRef<HTMLDivElement | null>(null);
 
   const selectedProject = projects.find((project) => project.id === selectedId) || null;
@@ -333,7 +334,7 @@ export default function Director() {
       !window.confirm(
         "Start a public Cloudflare tunnel with MCP authentication disabled?\n\n" +
           "Anyone with the connector URL can control this Cartoon Studio instance. " +
-          "The tunnel and no-auth mode stop automatically after 30 minutes."
+          `The tunnel and no-auth mode stop automatically after ${tunnelTtl} minutes.`
       )
     ) {
       return;
@@ -342,7 +343,7 @@ export default function Director() {
     setTunnelError("");
     setNotice("Starting the ChatGPT tunnel. This can take 20–40 seconds…");
     try {
-      const status = await api.startChatGPTTunnel({ confirm: true, ttl_minutes: 30 });
+      const status = await api.startChatGPTTunnel({ confirm: true, ttl_minutes: tunnelTtl });
       setTunnel(status);
       setNotice("ChatGPT tunnel is live. Copy the connector URL into ChatGPT.");
     } catch (exc) {
@@ -508,7 +509,7 @@ export default function Director() {
           <div>
             <h2>ChatGPT Connection</h2>
             <div className="panel-sub">
-              One-click temporary MCP tunnel. Auto-secures after 30 minutes.
+              One-click temporary MCP tunnel. Auto-secures after the selected session length.
             </div>
           </div>
           <span className={`chip ${tunnel?.active ? "exp" : ""}`}>
@@ -530,6 +531,21 @@ export default function Director() {
               mode stop automatically after 30 minutes.
             </p>
             <div className="row">
+              <label className="tiny muted" htmlFor="chatgpt-ttl">
+                Keep connected
+              </label>
+              <select
+                id="chatgpt-ttl"
+                value={tunnelTtl}
+                onChange={(event) => setTunnelTtl(Number(event.target.value))}
+                disabled={tunnelBusy}
+              >
+                <option value={30}>30 minutes</option>
+                <option value={60}>1 hour</option>
+                <option value={120}>2 hours</option>
+                <option value={240}>4 hours</option>
+                <option value={480}>8 hours</option>
+              </select>
               <button
                 className="btn primary"
                 onClick={connectChatGPT}
@@ -583,6 +599,10 @@ export default function Director() {
               </li>
               <li>Create it, scan tools, and enable the connector.</li>
             </ol>
+            <div className="tiny muted">
+              This is a temporary quick tunnel. If it expires or the backend restarts, the URL
+              changes. Click Connect ChatGPT again and update the connector URL in ChatGPT.
+            </div>
             <div className="row">
               <button className="btn" onClick={disconnectChatGPT} disabled={tunnelBusy}>
                 {tunnelBusy ? "Securing…" : "Disconnect & secure"}

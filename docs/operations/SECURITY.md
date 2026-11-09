@@ -16,7 +16,7 @@
 - Tokens can be revoked.
 - FastMCP's `TokenVerifier` validates the bearer token and scopes.
 - `MCP_AUTH_MODE=none` is an explicit local-testing mode and requires `MCP_ALLOW_UNAUTHENTICATED=true`. It is unsafe on a public endpoint; use a temporary private tunnel and restore bearer mode afterwards.
-- The AI Director UI exposes a one-click ChatGPT tunnel (`/api/v1/mcp/tunnel/*`). It starts a Cloudflare quick tunnel, switches MCP to no-auth mode, and auto-restores bearer auth after 30 minutes or when the user clicks **Disconnect & secure**. The tunnel URL is public and unauthenticated while active; treat it as a temporary secret and do not share it.
+- The AI Director UI exposes a one-click ChatGPT tunnel (`/api/v1/mcp/tunnel/*`). It starts a Cloudflare quick tunnel, switches MCP to no-auth mode, and auto-restores bearer auth after the selected session length (30 minutes to 8 hours; default 30 minutes) or when the user clicks **Disconnect & secure**. The tunnel URL is public and unauthenticated while active; treat it as a temporary secret and do not share it.
 - The server is a resource server; it does not implement a full OAuth authorization server. ChatGPT connectors support OAuth or No authentication, not static bearer tokens. Use no-auth mode behind a private tunnel for local testing, or an OAuth-aware proxy for ongoing use.
 
 ## Secrets

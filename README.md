@@ -466,7 +466,7 @@ Open the **AI Director** page and use the **ChatGPT Connection** panel:
 2. The backend starts a Cloudflare quick tunnel to port 8020, temporarily switches MCP to no-auth mode, waits for local and public health, and returns the connector URL.
 3. Copy the displayed URL (`https://<tunnel-host>/mcp`) into a ChatGPT custom MCP connector with **No authentication**.
 4. Click **Disconnect & secure** when finished. The tunnel stops, MCP returns to bearer mode, and the temporary state is removed.
-5. If you forget, the tunnel auto-stops after 30 minutes.
+5. If you forget, the tunnel auto-stops after the selected session length (30 minutes to 8 hours; default 30 minutes).
 
 The UI uses `/api/v1/mcp/tunnel/start|stop|status`. It requires `cloudflared` on PATH (installed here). The tunnel is public and no-auth while active, so use it only for a short local test.
 
