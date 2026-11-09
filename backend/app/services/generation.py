@@ -139,6 +139,7 @@ async def submit_image(
     lora_name: str | None = None,
     lora_strength: float | None = None,
     extra_params: dict[str, Any] | None = None,
+    priority: int = 0,
 ) -> dict[str, Any]:
     config = load_config()
     model = resolve_image_model(
@@ -190,12 +191,15 @@ async def submit_image(
     params.setdefault("batch_size", 1)
     if extra_params:
         params.update(extra_params)
+    if priority:
+        params["priority"] = priority
     validate_dimensions(model, int(params["width"]), int(params["height"]))
     job = await runner.submit(
         project_id=project_id,
         workflow_id=entry["id"],
         workflow_name=entry["name"],
         params=params,
+        priority=priority,
     )
     job["model"] = {
         "architecture": model["architecture"],
@@ -228,6 +232,7 @@ async def submit_video(
     scheduler: str | None = None,
     input_image: str | None = None,
     workflow_id: str | None = None,
+    priority: int = 0,
 ) -> dict[str, Any]:
     config = load_config()
     entry = video_workflow(config, workflow_id, require_input_image=bool(input_image))
@@ -248,11 +253,14 @@ async def submit_video(
         "scene_id": scene_id,
         "attach": attach,
     }
+    if priority:
+        params["priority"] = priority
     return await runner.submit(
         project_id=project_id,
         workflow_id=entry["id"],
         workflow_name=entry["name"],
         params=params,
+        priority=priority,
     )
 
 

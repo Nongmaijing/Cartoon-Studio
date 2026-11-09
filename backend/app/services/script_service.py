@@ -52,6 +52,50 @@ def _context(project_id: str) -> dict[str, Any]:
     }
 
 
+def _normalize_story(story: dict[str, Any]) -> dict[str, Any]:
+    for index, scene in enumerate(story.get("scenes") or [], start=1):
+        if not isinstance(scene, dict):
+            continue
+        scene["title"] = str(scene.get("title") or f"Scene {index}").strip()
+        scene["summary"] = str(scene.get("summary") or "").strip()
+        scene["action"] = str(scene.get("action") or "").strip()
+        scene["camera"] = str(scene.get("camera") or "").strip()
+        scene["characters"] = [str(name).strip() for name in (scene.get("characters") or []) if str(name).strip()]
+        dialogue = []
+        for line in scene.get("dialogue") or []:
+            if not isinstance(line, dict):
+                continue
+            text = str(line.get("text") or "").strip()
+            if not text:
+                continue
+            dialogue.append(
+                {
+                    "speaker": str(line.get("speaker") or "Narrator").strip(),
+                    "text": text,
+                    "emotion": str(line.get("emotion") or "neutral").strip(),
+                }
+            )
+        scene["dialogue"] = dialogue
+    story["title"] = str(story.get("title") or "Untitled Story").strip()
+    return story
+
+
+def _continuity_warnings(story: dict[str, Any], characters: list[dict[str, Any]]) -> list[str]:
+    allowed = {str(character.get("name") or "").strip().lower() for character in characters}
+    found: set[str] = set()
+    for scene in story.get("scenes") or []:
+        if not isinstance(scene, dict):
+            continue
+        for name in scene.get("characters") or []:
+            if str(name).strip():
+                found.add(str(name).strip())
+        for line in scene.get("dialogue") or []:
+            speaker = str(line.get("speaker") or "").strip()
+            if speaker and speaker.lower() != "narrator":
+                found.add(speaker)
+    return sorted(name for name in found if name.lower() not in allowed)
+
+
 async def generate_story(
     project_id: str,
     premise: str,
@@ -73,6 +117,9 @@ Create a short, kind, school-appropriate story based on this premise: {premise}
 Project context:
 {json.dumps(context, ensure_ascii=False)}
 
+Existing characters: {", ".join(character.get("name", "") for character in context.get("characters", [])) or "none"}
+Prefer the existing characters. If the premise requires a new character, mark that clearly in the scene's characters list.
+
 Return ONLY valid JSON with this shape:
 {{
   "title": "string",
@@ -93,9 +140,15 @@ Keep the story suitable for children ages 5-9. Do not include violence, scary im
     story = await generate_json(prompt)
     if not isinstance(story, dict) or not isinstance(story.get("scenes"), list):
         raise ServiceError("The story generator returned an invalid structure.")
-    _save_episode_memory(episode_id, production={"story": story}, script={"story": story})
-    log(actor, "generate_story", "episode", episode_id, {"title": story.get("title")})
-    return {"episode_id": episode_id, "story": story}
+    story = _normalize_story(story)
+    warnings = _continuity_warnings(story, context.get("characters") or [])
+    _save_episode_memory(
+        episode_id,
+        production={"story": story, "continuity_warnings": warnings},
+        script={"story": story},
+    )
+    log(actor, "generate_story", "episode", episode_id, {"title": story.get("title"), "warnings": warnings})
+    return {"episode_id": episode_id, "story": story, "continuity_warnings": warnings}
 
 
 async def generate_script(

@@ -8,7 +8,7 @@ from ..config import load_config
 from ..core.security import rate_limiter
 from ..providers.registry import registry
 from ..schemas_ai import ApprovalRequest, ProductionRegenerateRequest, ProductionStartRequest
-from ..services import production_service, quality_control_service, scene_service
+from ..services import production_service, quality_control_service, scene_service, shot_plan_service
 from ..services.errors import ServiceError
 
 router = APIRouter(prefix="/api/v1/production", tags=["production"])
@@ -151,3 +151,42 @@ async def review_scene(scene_id: str) -> dict[str, Any]:
         return quality_control_service.review_scene(scene_id, actor="user")
     except ServiceError as exc:
         _raise(exc)
+
+
+@router.post("/episodes/{episode_id}/shot-plan")
+async def build_shot_plan(episode_id: str) -> dict[str, Any]:
+    try:
+        return shot_plan_service.build_shot_plan(episode_id, actor="user")
+    except ServiceError as exc:
+        _raise(exc)
+
+
+@router.get("/episodes/{episode_id}/shot-plan")
+async def get_shot_plan(episode_id: str) -> dict[str, Any]:
+    try:
+        return shot_plan_service.get_shot_plan(episode_id)
+    except ServiceError as exc:
+        _raise(exc)
+
+
+@router.get("/episodes/{episode_id}/estimate")
+async def episode_estimate(episode_id: str) -> dict[str, Any]:
+    try:
+        return shot_plan_service.estimate_episode(episode_id)
+    except ServiceError as exc:
+        _raise(exc)
+
+
+@router.post("/episodes/{episode_id}/shots/{shot_id}/status")
+async def update_shot_status(episode_id: str, shot_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    status = str(payload.get("status") or "planned")
+    notes = str(payload.get("notes") or "")
+    try:
+        return shot_plan_service.update_shot_status(episode_id, shot_id, status, notes, actor="user")
+    except ServiceError as exc:
+        _raise(exc)
+
+
+@router.get("/report")
+async def report(project_id: str | None = None) -> dict[str, Any]:
+    return shot_plan_service.production_report(project_id)

@@ -8,6 +8,7 @@ from typing import Any
 from ..comfy.client import ComfyClient, ComfyError
 from ..config import _deep_merge, default_config, load_config, save_config
 from ..workflows.registry import find_workflow
+from .engines import combo_options
 
 MODEL_CATEGORIES = ("checkpoints", "vae", "loras", "controlnet", "upscale_models")
 MODEL_EXTENSIONS = {".safetensors", ".ckpt", ".pt", ".pth", ".bin"}
@@ -295,9 +296,7 @@ def _comfy_options(object_info: dict[str, Any], category: str) -> list[str]:
     class_type, input_name = mapping.get(category, ("", ""))
     node = object_info.get(class_type) or {}
     spec = ((node.get("input") or {}).get("required") or {}).get(input_name)
-    if not spec or not isinstance(spec[0], list):
-        return []
-    return [str(value) for value in spec[0]]
+    return combo_options(spec)
 
 
 def _merge_comfy_options(

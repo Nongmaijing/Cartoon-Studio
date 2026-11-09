@@ -754,3 +754,54 @@ export interface CharacterSheetStatus {
   complete: boolean;
   failed: boolean;
 }
+
+export interface ProductionDepartment {
+  id: string;
+  name: string;
+  status: "ready" | "partial" | "blocked" | string;
+  summary: string;
+  installed: Array<Record<string, any>>;
+  missing: Array<Record<string, any>>;
+  recommendations: Array<Record<string, any>>;
+}
+
+export interface ProductionRegistry {
+  departments: ProductionDepartment[];
+  summary: {
+    ready: number;
+    partial: number;
+    blocked: number;
+    total: number;
+    ready_ids: string[];
+    partial_ids: string[];
+    blocked_ids: string[];
+  };
+  resources: Record<string, any>;
+  llm: Record<string, any>;
+  tts: Array<Record<string, any>>;
+  image_catalog: Record<string, any>;
+  comfyui_nodes: Record<string, any>;
+  comfyui_error: string | null;
+  recommendations: Array<Record<string, any>>;
+  note: string;
+}
+
+export interface ShotPlan {
+  version: number;
+  generated_at: string;
+  episode_id: string;
+  project_id: string;
+  episode_name: string;
+  shot_count: number;
+  shots: Array<Record<string, any>>;
+  estimate: {
+    image_seconds: number;
+    animation_seconds: number;
+    total_gpu_seconds: number;
+    total_gpu_minutes: number;
+    dialogue_lines: number;
+    missing_keyframes: number;
+    missing_animations: number;
+    note: string;
+  };
+}

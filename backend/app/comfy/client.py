@@ -29,6 +29,24 @@ class ComfyClient:
         except httpx.HTTPError as exc:
             raise ComfyError(f"GET {path} failed: {exc}") from exc
 
+    async def _post(self, path: str, payload: dict[str, Any] | None = None) -> Any:
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(self.base_url + path, json=payload or {})
+                response.raise_for_status()
+                try:
+                    return response.json()
+                except ValueError:
+                    return {"status": "ok"}
+        except httpx.HTTPError as exc:
+            raise ComfyError(f"POST {path} failed: {exc}") from exc
+
+    async def free_memory(self, unload_models: bool = True, free_memory: bool = True) -> dict[str, Any]:
+        return await self._post(
+            "/free",
+            {"unload_models": unload_models, "free_memory": free_memory},
+        )
+
     async def system_stats(self) -> dict[str, Any]:
         return await self._get("/system_stats")
 

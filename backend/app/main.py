@@ -28,11 +28,15 @@ from .routers import (
     episodes,
     generate,
     health,
+    llm,
+    lip_sync,
     mcp_support,
     models,
     production,
     projects,
     providers,
+    registry,
+    resources,
     scenes,
     settings,
     voice,
@@ -113,9 +117,13 @@ app.include_router(episodes.router)
 app.include_router(ai_director.router)
 app.include_router(production.router)
 app.include_router(providers.router)
+app.include_router(resources.router)
+app.include_router(registry.router)
 app.include_router(mcp_support.router)
 app.include_router(models.router)
 app.include_router(health.router)
+app.include_router(llm.router)
+app.include_router(lip_sync.router)
 app.include_router(workflows.router)
 app.include_router(generate.router)
 app.include_router(assets.router)

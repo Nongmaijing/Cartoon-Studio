@@ -141,3 +141,40 @@ Run `scripts\stop_all.ps1` to stop Cartoon Studio ports, then restart.
 - The file must be in `models\loras` or `models\vae` and visible in ComfyUI.
 - Refresh the catalog after installing it.
 - The LoRA architecture must match the active model (SDXL LoRA for SDXL, SD 1.5 LoRA for SD 1.5).
+
+## Local LLM is unavailable
+
+- Start Ollama and confirm `ollama list`.
+- Check `GET /api/v1/llm/health`.
+- Set `LLM_PROVIDER=ollama` and `OLLAMA_MODEL=qwen3:8b` (or another installed completion model).
+- The AI Director chat still needs OpenAI; local Ollama powers story/script tools and the LLM API.
+
+## Vision review fails
+
+- Confirm a vision model is installed in Ollama, e.g. `qwen2.5vl:3b`.
+- Check `GET /api/v1/llm/health` → `ollama.models` capabilities include `vision`.
+- The first vision call can take 30+ seconds on this GPU. Use the 3B model for faster previews.
+- AI review never auto-approves; review the JSON manually.
+
+## Shot plan is empty
+
+- The episode needs a storyboard or at least one scene in the project.
+- Build the shot plan from the Episode Editor.
+- Building a plan does not queue generation jobs.
+
+## VRAM is still low after Free VRAM
+
+- Check whether another process is using the GPU.
+- ComfyUI `/free` unloads its models, but Windows and other apps may hold VRAM.
+- Restart ComfyUI with `--lowvram` when working with SDXL or video.
+
+## Wan video is slow
+
+- Wan 2.2 on 6 GB is slow. Use 320×192, 5 frames, 4 steps for pipeline tests.
+- Use one short shot at a time; do not queue full episodes.
+- Prefer LTX-Video only after installing and testing its weights.
+
+## Lip-sync cues exist but no mouth animation
+
+- The cue layer is intentionally separate. Mouth rendering needs Wav2Lip/SadTalker/Rhubarb or a rig/cut-out pipeline, none of which are installed.
+- Edit cues via `PUT /api/v1/lip-sync/lines/{id}` and render them in the chosen 2D animation tool.

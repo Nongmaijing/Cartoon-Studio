@@ -199,6 +199,36 @@ VALUES
  ('prov_ffmpeg_editing', 'ffmpeg_editing', 'editing', '{}', 1, datetime('now'), datetime('now'));
 """,
     },
+    {
+        "version": 2,
+        "name": "production_resource_tracking",
+        "columns": [
+            ("jobs", "resource_class", "TEXT"),
+            ("jobs", "model_name", "TEXT"),
+            ("jobs", "execution_seconds", "REAL"),
+            ("jobs", "peak_vram_mb", "INTEGER"),
+            ("jobs", "priority", "INTEGER NOT NULL DEFAULT 0"),
+            ("jobs", "estimated_seconds", "REAL"),
+            ("production_tasks", "resource_class", "TEXT"),
+            ("production_tasks", "model_name", "TEXT"),
+            ("production_tasks", "execution_seconds", "REAL"),
+            ("production_tasks", "peak_vram_mb", "INTEGER"),
+            ("production_runs", "estimated_seconds", "REAL"),
+            ("production_runs", "actual_seconds", "REAL"),
+        ],
+        "sql": """
+CREATE INDEX IF NOT EXISTS idx_jobs_priority ON jobs(status, priority, created_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_resource ON jobs(resource_class, created_at);
+""",
+    },
+    {
+        "version": 3,
+        "name": "lip_sync_cues",
+        "columns": [
+            ("dialogue_lines", "lip_sync_json", "TEXT NOT NULL DEFAULT '{}'"),
+        ],
+        "sql": "",
+    },
 ]
 
 

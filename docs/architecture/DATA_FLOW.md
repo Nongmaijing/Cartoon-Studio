@@ -105,3 +105,54 @@ UI / AI tool / MCP / production task
 ```
 
 The Model Studio reads the same configuration. It never downloads files; it only scans model directories and reports readiness. If no SDXL checkpoint is configured, `resolve_image_model` falls back to SD 1.5 and records the fallback reason in the job parameters.
+
+## 8. Production registry and resource manager
+
+```
+Model Studio / Production Registry
+  -> model_config_service.catalog()
+  -> production_registry_service.registry()
+       -> ComfyUI object_info + model files
+       -> Ollama models/capabilities
+       -> TTS engine detection
+       -> department readiness + candidates
+  -> resource_manager.snapshot()
+       -> GPU/VRAM, RAM, queue
+  -> resource_manager.free_vram()
+       -> ComfyUI /free
+```
+
+Every queued job records `resource_class`, model name, estimated seconds, actual seconds and peak VRAM. The queue is priority-aware.
+
+## 9. Local LLM / VLM
+
+```
+Script/story tool
+  -> llm_provider.generate_json()
+       -> Ollama /api/generate (preferred)
+       -> OpenAI Responses API (fallback)
+  -> continuity warnings compared with project characters
+
+Image asset
+  -> llm_provider.vision_review()
+       -> Ollama vision model + base64 image
+       -> structured JSON
+       -> human_review_required = true
+```
+
+## 10. Shot plan and lip-sync cues
+
+```
+Episode storyboard/scenes
+  -> shot_plan_service.build_shot_plan()
+       -> shot-level cast/background/camera/dialogue
+       -> resource_manager.estimate_job()
+       -> production_json["shot_plan"]
+  -> no jobs started
+
+Dialogue line
+  -> lip_sync_service.generate_for_line()
+       -> text_to_cues()
+       -> dialogue_lines.lip_sync_json
+  -> independently editable; mouth rendering is a separate model/rig step
+```

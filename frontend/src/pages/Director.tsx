@@ -52,6 +52,7 @@ export default function Director() {
   const [run, setRun] = useState<ProductionRun | null>(null);
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [aiModel, setAiModel] = useState<string | null>(null);
+  const [localLlm, setLocalLlm] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [tunnel, setTunnel] = useState<ChatGPTTunnelStatus | null>(null);
@@ -120,6 +121,7 @@ export default function Director() {
       setConversations(conversationList);
       setAiConfigured(health.openai.configured);
       setAiModel(health.model);
+      setLocalLlm(health.llm?.ollama?.available ? String(health.llm.ollama.default_model || "ollama") : null);
       setSelectedEpisodeId((current) =>
         current && episodeList.some((episode) => episode.id === current) ? current : episodeList[0]?.id || ""
       );
@@ -202,7 +204,8 @@ export default function Director() {
       const health = await api.aiHealth();
       setAiConfigured(health.openai.configured);
       setAiModel(health.model);
-      setNotice(health.openai.configured ? "OpenAI connection is configured." : "OpenAI is not configured yet.");
+      setLocalLlm(health.llm?.ollama?.available ? String(health.llm.ollama.default_model || "ollama") : null);
+      setNotice(health.openai.configured ? "OpenAI connection is configured." : "OpenAI is not configured for Director chat.");
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
     }
@@ -499,9 +502,12 @@ export default function Director() {
       {aiConfigured === false && (
         <div style={{ marginBottom: 14 }}>
           <Alert kind="warn">
-            OpenAI is not configured. Set <span className="mono">OPENAI_API_KEY</span> and{" "}
+            OpenAI is not configured for Director chat. Set <span className="mono">OPENAI_API_KEY</span> and{" "}
             <span className="mono">OPENAI_MODEL</span> in <span className="mono">D:\bro\CartoonStudio\.env</span>,
-            then restart the backend. The MCP and production tools remain available without OpenAI.
+            then restart the backend.{" "}
+            {localLlm
+              ? `Local Ollama (${localLlm}) is available for story/script generation through tools.`
+              : "The MCP and production tools remain available without OpenAI."}
           </Alert>
         </div>
       )}
@@ -630,7 +636,7 @@ export default function Director() {
               <h2>Director Chat</h2>
               <div className="panel-sub">
                 {selectedProject?.name} · {selectedEpisode?.name || "No episode selected"} ·{" "}
-                {aiConfigured ? `model ${aiModel || "configured"}` : "OpenAI not configured"}
+                {aiConfigured ? `model ${aiModel || "configured"}` : localLlm ? `local LLM ${localLlm}` : "OpenAI not configured"}
               </div>
             </div>
             {sending && <StatusBadge status="running" />}

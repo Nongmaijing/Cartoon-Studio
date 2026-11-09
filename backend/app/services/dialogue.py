@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import uuid
 from pathlib import Path
@@ -41,6 +42,10 @@ def _decorate(row: dict[str, Any]) -> dict[str, Any]:
         else None
     )
     row["voice_label"] = " / ".join(part for part in (row.get("voice_engine"), row.get("voice_name")) if part)
+    try:
+        row["lip_sync"] = json.loads(row.get("lip_sync_json") or "{}")
+    except json.JSONDecodeError:
+        row["lip_sync"] = {}
     return row
 
 

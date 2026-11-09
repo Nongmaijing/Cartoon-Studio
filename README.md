@@ -45,7 +45,7 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | SDXL character/background workflow templates with tiled VAE and 6 GB presets | Templates valid; live SDXL blocked until an SDXL checkpoint is installed |
 | Character turnaround / expression / pose sheet orchestration | Implemented; mocked tests pass; live SDXL blocked |
 | SD 1.5 regression after the model-config changes | Working — live 512×512 test job completed |
-| Automated tests | **35 passed** |
+| Automated tests | **42 passed** |
 
 Verified on this machine: SD 1.5 jobs completed in seconds, saved under `outputs/<project>/<job>/`, and served at `/api/assets/{id}/file`. A scene with a cast and background generated a 512×288 keyframe, then a 320×192 / 5-frame Wan image-to-video clip using that keyframe as frame one (uploaded to ComfyUI's input root). Both outputs were copied into the project, attached to the scene as `keyframe` / `video`, and the clip was confirmed with ffprobe (`h264`, 320×192, 5 frames). In Phase 4 a character canonical image drove an SD 1.5 img2img job at denoise 0.55 (completed, attached as a reference), pose mode correctly reported an image-to-image fallback because no ControlNet model is installed, and a scene keyframe used a cast reference through img2img. AnimateDiff and ControlNet are reported as not runnable with their missing nodes/models named. In Phase 5 Windows SAPI was detected with Microsoft David and Zira, a character voice was saved, a scene line was synthesized to a 2.129 s WAV at 22.05 kHz, a narrator line and imported script lines were generated, and a duplicated project retained dialogue lines, voice settings and remapped audio files. In Phase 6 a two-segment 10-second episode (image + video, 3 dialogue tracks, fade transitions, soft subtitles) exported to 1280×720 H.264/AAC MP4 in **1.53 s** of FFmpeg time (**2.35 s** end-to-end including polling), producing a **1.68 MB** file with H.264 video, AAC stereo audio and `mov_text` subtitles; ffprobe confirmed 10.000 s duration. A duplicated project retained the episode timeline, remapped scene/audio assets and a playable copied MP4.
 
@@ -169,7 +169,7 @@ cd D:\bro\CartoonStudio\backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Current result: **35 passed**.
+Current result: **42 passed**.
 
 ---
 
@@ -312,6 +312,41 @@ Character consistency:
 SD 1.5 remains selectable and is the automatic fallback until an SDXL checkpoint is installed and configured. A live SD 1.5 regression job completed after the model-config changes (512×512, asset `d5c70209dd33`).
 
 See `docs/integration/SDXL_MODEL_GUIDE.md` for manual model installation, licensing, VRAM expectations and limitations.
+
+### Production Studio milestone
+
+The app now has a cross-department production layer in addition to the image-generation upgrade:
+
+- **Central production registry** (`GET /api/v1/registry`) reports image, editing, consistency, video, voice, ASR, SFX, music, LLM, VLM and upscaling readiness, with candidate model sources, licenses and VRAM notes.
+- **Resource manager** (`/api/v1/resources/status`, `/free`, `/estimate`) reports GPU/RAM/queue state, frees ComfyUI VRAM, and estimates workflow cost. The Model Studio has a **Free VRAM** button.
+- **Job tracking** (migration v2) records resource class, model, estimated/actual seconds, peak VRAM and priority. The queue is priority-aware.
+- **Local LLM/VLM** through Ollama: Qwen3 8B for story/script generation, Qwen2.5-VL 7B/3B for structured visual review. OpenAI remains an optional fallback for Director chat.
+- **Shot plan** (`/api/v1/production/episodes/{id}/shot-plan`) builds a shot-level plan with cast, background, camera, dialogue, keyframe/animation needs and rough GPU-time estimates. Building a plan starts no jobs.
+- **Production report** (`/api/v1/production/report`) reports counts, job statuses, resource usage, peak VRAM and recent jobs.
+- **Lip-sync cue layer** (`/api/v1/lip-sync/...`) generates editable viseme cues per dialogue line. Mouth-shape rendering is a separate blocked model step.
+- **1080p export** is available in the Episode Editor; a 1920×1080 H.264/AAC/subtitle test export was verified.
+
+Actual results on this machine:
+
+| Test | Result |
+|---|---|
+| Production registry | 7 ready, 3 partial, 1 blocked |
+| Resource status | RTX 4050, 6.0 GB VRAM, 31.71 GB RAM |
+| Free VRAM | Increased free VRAM to 4.9 GB |
+| Local LLM story | Qwen3 8B, 78 s, 4-scene story |
+| Local VLM review | Qwen2.5-VL 3B, 30.5 s, structured JSON |
+| Lip-sync cues | 43 editable cues for a 2.75 s line |
+| Shot plan | 1 shot, 19.4 s estimated GPU time |
+| Wan image-to-video | 320×192, 5 frames, 16.75 s, peak 3333 MB |
+| 4× upscale | 384→1536, 5.77 s, peak 2471 MB |
+| Kokoro dialogue | 1.75 s WAV |
+| SFX + music | Local assets generated |
+| 1080p export | 1920×1080 H.264/AAC/mov_text, 6.0 s |
+| Automated tests | **42 passed** |
+
+Blocked on this machine: SDXL generation (no checkpoint), image editing (Qwen/FLUX weights missing), IPAdapter/ControlNet (weights missing), speech recognition (no Whisper), lip-sync rendering (no Wav2Lip/SadTalker/Rhubarb), LTX/Hunyuan/CogVideoX and audio-generation model weights.
+
+See `docs/architecture/PRODUCTION_STUDIO.md` and `docs/integration/MODEL_REGISTRY.md`.
 
 ### Production voice model
 
@@ -563,7 +598,21 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 | GET | `/api/v1/ai/tools` | 56 shared tool definitions |
 | POST | `/api/v1/ai/tools/{name}` | Execute a shared tool locally |
 | GET | `/api/v1/ai/tool-executions` | Tool execution audit |
-| GET | `/api/v1/ai/health` | OpenAI configuration status |
+| GET | `/api/v1/ai/health` | OpenAI/local LLM configuration status |
+| GET | `/api/v1/registry` | Cross-department production registry and candidates |
+| GET | `/api/v1/resources/status` | GPU/VRAM/RAM/queue status |
+| POST | `/api/v1/resources/free` | Unload ComfyUI models and free VRAM |
+| POST | `/api/v1/resources/estimate` | Estimate workflow time/VRAM |
+| GET | `/api/v1/llm/health` | Ollama/OpenAI status and local models |
+| POST | `/api/v1/llm/generate` | Local/external text or JSON generation |
+| POST | `/api/v1/llm/vision-review` | Structured visual review of an image asset |
+| POST | `/api/v1/lip-sync/lines/{id}/generate` | Generate editable viseme cues |
+| GET/PUT | `/api/v1/lip-sync/lines/{id}` | Read/update viseme cues |
+| POST | `/api/v1/production/episodes/{id}/shot-plan` | Build shot-level plan and estimate |
+| GET | `/api/v1/production/episodes/{id}/shot-plan` | Read the shot plan |
+| GET | `/api/v1/production/episodes/{id}/estimate` | Preview episode resource estimate |
+| POST | `/api/v1/production/episodes/{id}/shots/{shot_id}/status` | Update a shot's production status |
+| GET | `/api/v1/production/report` | Production counts, statuses, resource usage |
 | POST | `/api/v1/production/start` | Start a production run (confirm) |
 | POST | `/api/v1/production/pause/{run}` | Pause a run |
 | POST | `/api/v1/production/resume/{run}` | Resume a run |
@@ -717,7 +766,7 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 | 8 | Automated production and deterministic QC | Complete; AI-assisted QC disabled by default |
 | 9 | AI Director frontend | Complete, production build passes |
 | 10 | Security, token auth, redaction, audit, rate limits | Complete; full OAuth server not implemented |
-| 11 | Automated tests | **35 passed** |
+| 11 | Automated tests | **42 passed** |
 | 12 | Documentation, `.env.example`, startup scripts | Complete |
 
 **All six production phases and the AI integration phases are implemented.** The production pipeline is fully usable without OpenAI. The AI layers are real backend integrations, not mocks, in production code; the automated tests mock external services by design.

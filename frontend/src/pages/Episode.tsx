@@ -12,6 +12,7 @@ import type {
   EpisodeTimeline,
   MediaItem,
   Scene,
+  ShotPlan,
 } from "../types";
 import { Alert, EmptyState, PageHeader, ProgressBar, StatusBadge } from "../components/Ui";
 
@@ -65,6 +66,8 @@ export default function EpisodeEditor() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [timeline, setTimeline] = useState<EpisodeTimeline>(cloneTimeline(undefined));
   const [dirty, setDirty] = useState(false);
+  const [shotPlan, setShotPlan] = useState<ShotPlan | null>(null);
+  const [shotPlanBusy, setShotPlanBusy] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newEpisode, setNewEpisode] = useState({ name: "", description: "" });
@@ -137,6 +140,7 @@ export default function EpisodeEditor() {
       setEpisode(null);
       setTimeline(cloneTimeline(undefined));
       setDirty(false);
+      setShotPlan(null);
       return;
     }
     let alive = true;
@@ -149,6 +153,14 @@ export default function EpisodeEditor() {
         setDirty(false);
       })
       .catch((exc) => setError(exc instanceof Error ? exc.message : String(exc)));
+    api
+      .getShotPlan(selectedEpisodeId)
+      .then((plan) => {
+        if (alive) setShotPlan(plan);
+      })
+      .catch(() => {
+        if (alive) setShotPlan(null);
+      });
     return () => {
       alive = false;
     };
@@ -342,6 +354,24 @@ export default function EpisodeEditor() {
     markDirty({ ...timeline, settings: { ...timeline.settings, ...patch } });
   };
 
+  const buildPlan = async () => {
+    if (!episode) return;
+    setShotPlanBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const plan = await api.buildShotPlan(episode.id);
+      setShotPlan(plan);
+      setNotice(
+        `Shot plan built: ${plan.shot_count} shots, about ${plan.estimate.total_gpu_minutes} GPU minutes on the 6 GB profile. No jobs were started.`
+      );
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setShotPlanBusy(false);
+    }
+  };
+
   const exportEpisode = async () => {
     if (!episode) return;
     setError("");
@@ -404,7 +434,7 @@ export default function EpisodeEditor() {
     <>
       <PageHeader
         title="Episode Editor"
-        subtitle="Arrange finished scenes, mix dialogue/music and export a 720p MP4. Timeline edits never regenerate scenes."
+        subtitle="Arrange finished scenes, mix dialogue/music and export a 1080p MP4 (720p/540p optional). Timeline edits never regenerate scenes."
         actions={
           <button className="btn primary" onClick={() => setShowCreate((value) => !value)}>
             {showCreate ? "Close" : "New episode"}
@@ -414,6 +444,69 @@ export default function EpisodeEditor() {
 
       {error && <div style={{ marginBottom: 14 }}><Alert kind="error">{error}</Alert></div>}
       {notice && <div style={{ marginBottom: 14 }}><Alert kind="ok">{notice}</Alert></div>}
+
+      {episode && (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-head">
+            <div>
+              <h2>Shot Plan</h2>
+              <div className="panel-sub">
+                Shot-level production plan and resource estimate. Building a plan does not start generation.
+              </div>
+            </div>
+            <button className="btn primary sm" onClick={buildPlan} disabled={shotPlanBusy}>
+              {shotPlanBusy ? "Planning…" : shotPlan ? "Rebuild plan" : "Build shot plan"}
+            </button>
+          </div>
+          {shotPlan ? (
+            <>
+              <div className="stat-grid ai-stats" style={{ marginBottom: 12 }}>
+                <div className="stat"><div className="stat-value">{shotPlan.shot_count}</div><div className="stat-label">Shots</div></div>
+                <div className="stat"><div className="stat-value">{shotPlan.estimate.total_gpu_minutes}</div><div className="stat-label">GPU minutes</div></div>
+                <div className="stat"><div className="stat-value">{shotPlan.estimate.image_seconds}</div><div className="stat-label">Image sec</div></div>
+                <div className="stat"><div className="stat-value">{shotPlan.estimate.animation_seconds}</div><div className="stat-label">Video sec</div></div>
+                <div className="stat"><div className="stat-value">{shotPlan.estimate.dialogue_lines}</div><div className="stat-label">Dialogue</div></div>
+                <div className="stat"><div className="stat-value">{shotPlan.estimate.missing_keyframes}</div><div className="stat-label">Missing keys</div></div>
+              </div>
+              <div style={{ overflow: "auto", maxHeight: 360 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Shot</th>
+                      <th>Scene</th>
+                      <th>Duration</th>
+                      <th>Characters</th>
+                      <th>Dialogue</th>
+                      <th>Keyframe</th>
+                      <th>Animation</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shotPlan.shots.map((shot) => (
+                      <tr key={String(shot.id)}>
+                        <td className="mono">{String(shot.label || shot.shot_number)}</td>
+                        <td>{String(shot.scene_number)}</td>
+                        <td>{String(shot.duration_seconds)}s</td>
+                        <td>{(shot.characters || []).map((character: any) => character.name).join(", ") || "—"}</td>
+                        <td>{shot.audio_requirements?.dialogue_count ?? 0}</td>
+                        <td>{shot.generation_instructions?.needs_keyframe ? "needed" : "ready"}</td>
+                        <td>{shot.generation_instructions?.needs_animation ? "planned" : "ready"}</td>
+                        <td><span className="chip">{String(shot.status || "planned")}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="tiny muted" style={{ marginTop: 8 }}>{shotPlan.estimate.note}</div>
+            </>
+          ) : (
+            <div className="tiny muted">
+              No shot plan yet. Build one to estimate GPU time and shot-level work before starting production.
+            </div>
+          )}
+        </section>
+      )}
 
       {showCreate && (
         <section className="panel" style={{ marginBottom: 16 }}>

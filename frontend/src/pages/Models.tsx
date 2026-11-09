@@ -7,6 +7,7 @@ import type {
   ModelConfig,
   ModelFileEntry,
   ModelLists,
+  ProductionRegistry,
   QueueState,
   WorkflowEntry,
 } from "../types";
@@ -44,6 +45,12 @@ function archLabel(value: string): string {
   return "Unknown";
 }
 
+function statusChip(status: string): string {
+  if (status === "ready") return "exp";
+  if (status === "partial") return "ref";
+  return "pose";
+}
+
 export default function Models() {
   const { selectedId } = useProject();
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
@@ -52,6 +59,11 @@ export default function Models() {
   const [modelLists, setModelLists] = useState<ModelLists | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [queueState, setQueueState] = useState<QueueState | null>(null);
+  const [registry, setRegistry] = useState<ProductionRegistry | null>(null);
+  const [freeing, setFreeing] = useState(false);
+  const [visionResult, setVisionResult] = useState<Record<string, any> | null>(null);
+  const [visionAsset, setVisionAsset] = useState<string>("");
+  const [visionBusy, setVisionBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -75,6 +87,11 @@ export default function Models() {
         setQueueState(await api.queue());
       } catch {
         setQueueState(null);
+      }
+      try {
+        setRegistry(await api.productionRegistry());
+      } catch {
+        setRegistry(null);
       }
       setError("");
     } catch (exc) {
@@ -135,8 +152,42 @@ export default function Models() {
     });
   };
 
-  const save = async () => {
-    if (!config) return;
+  const freeVram = async () => {
+    setFreeing(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await api.freeResources();
+      if (result.ok) {
+        setNotice("ComfyUI models unloaded and VRAM released.");
+      } else {
+        setError(String(result.error || "Could not free VRAM."));
+      }
+      await load();
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setFreeing(false);
+    }
+  };
+
+  const reviewImage = async (assetId: string) => {
+    setVisionBusy(true);
+    setVisionResult(null);
+    setVisionAsset(assetId);
+    setError("");
+    try {
+      const result = await api.visionReview(assetId);
+      setVisionResult(result);
+      setNotice("Vision review complete. AI review never auto-approves an asset.");
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setVisionBusy(false);
+    }
+  };
+
+  const save = async () => {    if (!config) return;
     setSaving(true);
     setError("");
     setNotice("");
@@ -177,6 +228,9 @@ export default function Models() {
         subtitle="Discover installed checkpoints, choose SDXL or SD 1.5, and configure 6 GB-safe presets. Nothing is downloaded automatically."
         actions={
           <>
+            <button className="btn ghost" onClick={freeVram} disabled={freeing}>
+              {freeing ? "Freeing…" : "Free VRAM"}
+            </button>
             <button className="btn ghost" onClick={load} disabled={loading}>
               {loading ? "Scanning…" : "Refresh catalog"}
             </button>
@@ -189,6 +243,81 @@ export default function Models() {
 
       {error && <div style={{ marginBottom: 14 }}><Alert kind="error">{error}</Alert></div>}
       {notice && <div style={{ marginBottom: 14 }}><Alert kind="ok">{notice}</Alert></div>}
+
+      {registry && (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-head">
+            <div>
+              <h2>Production Registry</h2>
+              <div className="panel-sub">
+                Department readiness and candidate models. Read-only; nothing is installed automatically.
+              </div>
+            </div>
+            <div className="row">
+              <span className="chip exp">{registry.summary.ready} ready</span>
+              <span className="chip ref">{registry.summary.partial} partial</span>
+              <span className="chip pose">{registry.summary.blocked} blocked</span>
+            </div>
+          </div>
+          <div className="kv" style={{ marginBottom: 12 }}>
+            <span className="k">GPU</span>
+            <span className="v">
+              {registry.resources?.gpu?.name || "offline"} ·{" "}
+              {registry.resources?.gpu?.vram_total_gb
+                ? `${registry.resources.gpu.vram_free_gb} GB free of ${registry.resources.gpu.vram_total_gb} GB`
+                : "VRAM unavailable"}
+            </span>
+            <span className="k">System RAM</span>
+            <span className="v">
+              {registry.resources?.ram?.available_gb} GB available of {registry.resources?.ram?.total_gb} GB
+            </span>
+            <span className="k">Local LLMs</span>
+            <span className="v">
+              {(registry.llm?.ollama?.models || []).map((model: Record<string, any>) => model.name).join(", ") || "none"}
+            </span>
+            <span className="k">Vision models</span>
+            <span className="v">
+              {(registry.llm?.ollama?.models || [])
+                .filter((model: Record<string, any>) => (model.capabilities || []).includes("vision"))
+                .map((model: Record<string, any>) => model.name)
+                .join(", ") || "none"}
+            </span>
+            <span className="k">Ready TTS</span>
+            <span className="v">
+              {registry.tts.filter((engine) => engine.status === "ready").map((engine) => engine.name).join(", ") || "none"}
+            </span>
+          </div>
+          <div className="grid two">
+            {registry.departments.map((department) => (
+              <div className="ai-provider" key={department.id}>
+                <div className="row between">
+                  <strong>{department.name}</strong>
+                  <span className={`chip ${statusChip(department.status)}`}>{department.status}</span>
+                </div>
+                <div className="tiny muted">{department.summary}</div>
+                <div className="tiny">
+                  Installed: {department.installed.length} · Missing/candidates: {department.missing.length}
+                </div>
+                {department.recommendations.length > 0 && (
+                  <details className="ai-tool-details">
+                    <summary>{department.recommendations.length} candidate model(s)</summary>
+                    {department.recommendations.slice(0, 6).map((rec, index) => (
+                      <div className="ai-tool" key={`${department.id}-${index}`}>
+                        <div>
+                          <strong>{String(rec.name || "candidate")}</strong>
+                          <div className="tiny muted">{String(rec.license || "license not recorded")}</div>
+                        </div>
+                        <span className="tiny">{String(rec.vram || rec.download_size || "")}</span>
+                      </div>
+                    ))}
+                  </details>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="tiny muted" style={{ marginTop: 10 }}>{registry.note}</div>
+        </section>
+      )}
 
       {catalog && (
         <div className="grid two" style={{ marginBottom: 16 }}>
@@ -581,9 +710,22 @@ export default function Models() {
                       <span className="wrap">{asset.filename}</span>
                       <span>{asset.kind}</span>
                     </div>
+                    <div className="media-actions">
+                      <button className="btn sm" onClick={() => reviewImage(asset.id)} disabled={visionBusy}>
+                        {visionBusy && visionAsset === asset.id ? "Reviewing…" : "Vision review"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
+            )}
+            {visionResult && (
+              <>
+                <div className="section-title" style={{ marginTop: 14 }}>Vision review · {visionAsset}</div>
+                <pre className="prompt-preview" style={{ maxHeight: 320, overflow: "auto" }}>
+                  {JSON.stringify(visionResult, null, 2)}
+                </pre>
+              </>
             )}
           </section>
         </>

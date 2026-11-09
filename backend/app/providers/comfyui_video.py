@@ -41,6 +41,7 @@ class ComfyUIVideoProvider(VideoProvider):
             scheduler=kwargs.get("scheduler"),
             input_image=kwargs.get("input_image"),
             workflow_id=kwargs.get("workflow_id"),
+            priority=int(kwargs.get("priority") or 0),
         )
         return {"provider": "comfyui", "job": job, "job_id": job.get("id")}
 

@@ -4,6 +4,7 @@ import asyncio
 import json
 import mimetypes
 import re
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from ..db import execute, now, query, query_one
 from ..logging_setup import logger
 from ..workflows.adapter import apply_model_adapters, build_prompt, validate_workflow
 from ..workflows.registry import load_workflow
+from . import resource_manager
 from .engines import combo_options
 from .workflow_checks import missing_node_classes
 
@@ -118,7 +120,7 @@ def list_jobs(limit: int = 50, status: str | None = None, project_id: str | None
 
 
 def _queue_positions() -> dict[str, int]:
-    rows = query("SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at ASC")
+    rows = query("SELECT id FROM jobs WHERE status = 'queued' ORDER BY priority DESC, created_at ASC")
     return {row["id"]: index + 1 for index, row in enumerate(rows)}
 
 
@@ -148,7 +150,7 @@ def queue_state() -> dict[str, Any]:
     running_row = query_one(
         "SELECT id FROM jobs WHERE status = 'running' ORDER BY started_at ASC LIMIT 1"
     )
-    pending_rows = query("SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at ASC")
+    pending_rows = query("SELECT id FROM jobs WHERE status = 'queued' ORDER BY priority DESC, created_at ASC")
     positions = {row["id"]: index + 1 for index, row in enumerate(pending_rows)}
     running = get_job(running_row["id"]) if running_row else None
     pending: list[dict[str, Any]] = []
@@ -166,14 +168,15 @@ def queue_state() -> dict[str, Any]:
 
 def current_job() -> dict[str, Any] | None:
     row = query_one(
-        "SELECT * FROM jobs WHERE status IN ('running','queued') ORDER BY created_at ASC LIMIT 1"
+        "SELECT * FROM jobs WHERE status IN ('running','queued') ORDER BY priority DESC, created_at ASC LIMIT 1"
     )
     return get_job(row["id"]) if row else None
 
 
 class JobRunner:
     def __init__(self) -> None:
-        self._queue: asyncio.Queue[str] = asyncio.Queue()
+        self._queue: asyncio.PriorityQueue[tuple[int, int, str]] = asyncio.PriorityQueue()
+        self._counter = 0
         self._worker: asyncio.Task | None = None
         self._cancel_requested: set[str] = set()
         self._active: str | None = None
@@ -192,24 +195,38 @@ class JobRunner:
                 pass
             self._worker = None
 
-    async def submit(self, project_id: str, workflow_id: str, workflow_name: str, params: dict[str, Any]) -> dict[str, Any]:
+    async def submit(
+        self,
+        project_id: str,
+        workflow_id: str,
+        workflow_name: str,
+        params: dict[str, Any],
+        priority: int | None = None,
+    ) -> dict[str, Any]:
         job_id = uuid.uuid4().hex[:12]
+        if priority is None:
+            try:
+                priority = int(params.get("priority") or 0)
+            except (TypeError, ValueError):
+                priority = 0
         execute(
             """INSERT INTO jobs (id, project_id, scene_id, workflow_id, workflow_name, status, progress,
-                                 params_json, created_at)
-               VALUES (?, ?, ?, ?, ?, 'queued', 0, ?, ?)""",
+                                 priority, params_json, created_at)
+               VALUES (?, ?, ?, ?, ?, 'queued', 0, ?, ?, ?)""",
             (
                 job_id,
                 project_id,
                 params.get("scene_id"),
                 workflow_id,
                 workflow_name,
+                priority,
                 json.dumps(params),
                 now(),
             ),
         )
-        await self._queue.put(job_id)
-        logger.info("Queued job %s (%s) for project %s", job_id, workflow_id, project_id)
+        self._counter += 1
+        await self._queue.put((-priority, self._counter, job_id))
+        logger.info("Queued job %s (%s) for project %s priority=%s", job_id, workflow_id, project_id, priority)
         return get_job(job_id) or {}
 
     async def cancel(self, job_id: str) -> str:
@@ -231,22 +248,46 @@ class JobRunner:
 
     async def _worker_loop(self) -> None:
         while True:
-            job_id = await self._queue.get()
+            _, _, job_id = await self._queue.get()
             self._active = job_id
+            started = time.monotonic()
+            peak = {"mb": 0}
+            monitor = asyncio.create_task(self._track_vram(peak))
             try:
                 await self._run_job(job_id)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:  # noqa: BLE001 - a failed job must not kill the worker
                 logger.exception("Job %s failed", job_id)
+                message = str(exc) + resource_manager.oom_advice(str(exc))
                 execute(
                     "UPDATE jobs SET status='failed', error=?, finished_at=? WHERE id=?",
-                    (str(exc), now(), job_id),
+                    (message, now(), job_id),
                 )
             finally:
+                monitor.cancel()
+                try:
+                    await monitor
+                except asyncio.CancelledError:
+                    pass
+                elapsed = round(time.monotonic() - started, 3)
+                execute(
+                    "UPDATE jobs SET execution_seconds=?, peak_vram_mb=? WHERE id=?",
+                    (elapsed, peak["mb"] or None, job_id),
+                )
                 self._active = None
                 self._cancel_requested.discard(job_id)
                 self._queue.task_done()
+
+    async def _track_vram(self, peak: dict[str, int]) -> None:
+        while True:
+            try:
+                used = await resource_manager.current_vram_used_mb()
+                if used is not None and used > peak["mb"]:
+                    peak["mb"] = used
+            except Exception:  # noqa: BLE001 - monitoring must never fail a job
+                pass
+            await asyncio.sleep(2)
 
     async def _run_job(self, job_id: str) -> None:
         job = get_job(job_id)
@@ -259,6 +300,16 @@ class JobRunner:
         client = _client(config)
         params = dict(job["params"])
         params.setdefault("negative_prompt", config["generation"].get("negative_prompt"))
+        estimate = resource_manager.estimate_job(config, job["workflow_id"], params)
+        execute(
+            "UPDATE jobs SET resource_class=?, model_name=?, estimated_seconds=? WHERE id=?",
+            (
+                estimate.get("resource_class"),
+                params.get("model_checkpoint") or params.get("checkpoint") or job["workflow_id"],
+                estimate.get("estimated_seconds"),
+                job_id,
+            ),
+        )
 
         loaded = load_workflow(config, job["workflow_id"])
         api = loaded["api"]

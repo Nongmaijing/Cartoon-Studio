@@ -153,6 +153,14 @@ def default_config() -> dict[str, Any]:
             "timeout_seconds": 120,
             "max_context_chars": 60000,
         },
+        "llm": {
+            "provider": "auto",
+            "ollama_url": "http://127.0.0.1:11434",
+            "ollama_model": "qwen3:8b",
+            "vision_model": "qwen2.5vl:7b",
+            "timeout_seconds": 180,
+            "temperature": 0.4,
+        },
         "mcp": {
             "enabled": False,
             "host": "127.0.0.1",

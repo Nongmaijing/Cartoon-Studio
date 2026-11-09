@@ -96,7 +96,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Mocked production task execution.
 - [x] Mocked OpenAI Responses tool loop.
 - [x] Existing API regression checks performed manually.
-- Result: **35 passed**.
+- Result: **42 passed**.
 
 ## Phase 12 — Documentation and deployment
 - [x] Architecture, development, integration and operations docs.
@@ -120,5 +120,24 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Model approval action; no auto-approval.
 - [x] SD 1.5 live regression passed; SDXL live tests blocked by missing checkpoint.
 - [x] `docs/integration/SDXL_MODEL_GUIDE.md`.
-- [x] **35 passed** automated tests.
+- [x] **42 passed** automated tests.
 - [ ] SDXL live character/background generation and VRAM measurement: blocked until an SDXL checkpoint is installed and selected.
+
+## Production Studio extension
+- [x] Cross-department production registry with readiness and candidate models.
+- [x] Resource manager: GPU/RAM/queue status, free-VRAM action, workflow estimates.
+- [x] Priority-aware queue and job tracking migration v2 (resource class, model, estimated/actual seconds, peak VRAM, priority).
+- [x] Local Ollama LLM integration for story/script generation and continuity warnings.
+- [x] Local Ollama Qwen2.5-VL visual review with structured JSON and mandatory human review.
+- [x] Shot plan with shot-level cast/background/camera/dialogue/audio and GPU-time estimates.
+- [x] Production report with counts, statuses and resource usage.
+- [x] Lip-sync viseme cue layer and migration v3; independently editable per dialogue line.
+- [x] 1080p H.264/AAC/subtitle export verified.
+- [x] Live tests: Wan image-to-video, 4× upscale, Kokoro dialogue, local SFX/music, SD 1.5 image, LLM/VLM.
+- [x] **42 passed** automated tests.
+- [ ] SDXL generation: blocked by missing SDXL checkpoint.
+- [ ] Image editing with Qwen-Image-Edit/FLUX Kontext: blocked by missing local weights.
+- [ ] IP-Adapter/SDXL ControlNet pose control: blocked by missing weights.
+- [ ] ASR and audio-to-lip alignment: blocked by missing Whisper/faster-whisper.
+- [ ] Lip-sync mouth rendering: blocked by missing Wav2Lip/SadTalker/Rhubarb or rig pipeline.
+- [ ] LTX/Hunyuan/CogVideoX and AudioGen/MusicGen/ACE-Step/Stable Audio: blocked by missing weights.

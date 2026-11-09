@@ -13,6 +13,7 @@ from ..config import load_config
 from ..core.runtime import integration_status, openai_settings
 from ..core.security import rate_limiter
 from ..schemas_ai import AIConversationCreate, AIMessageCreate
+from ..services import llm_provider
 from ..services.errors import ServiceError
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai-director"])
@@ -24,7 +25,12 @@ def _raise(exc: ServiceError) -> None:
 
 @router.get("/health")
 async def ai_health() -> dict[str, Any]:
-    return {"status": "ok", "openai": integration_status()["openai"], "model": openai_settings()["model"] or None}
+    return {
+        "status": "ok",
+        "openai": integration_status()["openai"],
+        "llm": await llm_provider.health(),
+        "model": openai_settings()["model"] or None,
+    }
 
 
 @router.get("/tools")

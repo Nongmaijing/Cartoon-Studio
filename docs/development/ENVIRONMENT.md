@@ -7,6 +7,11 @@
 | `OPENAI_BASE_URL` | No | Defaults to `https://api.openai.com/v1`. |
 | `OPENAI_MAX_TOOL_ROUNDS` | No | Tool-call loop limit, default 8. |
 | `OPENAI_TIMEOUT_SECONDS` | No | Timeout configuration value. |
+| `LLM_PROVIDER` | No | `auto`, `ollama`, or `openai`. `auto` prefers a reachable Ollama instance. |
+| `OLLAMA_BASE_URL` | No | Default `http://127.0.0.1:11434`. |
+| `OLLAMA_MODEL` | No | Local text model, default `qwen3:8b`. |
+| `OLLAMA_VISION_MODEL` | No | Local vision model, default `qwen2.5vl:7b`; `qwen2.5vl:3b` is faster. |
+| `OLLAMA_TIMEOUT_SECONDS` | No | Local LLM/VLM timeout, default 180. |
 | `CARTOON_STUDIO_BASE_URL` | No | Base URL for internal/docs references. |
 | `COMFYUI_BASE_URL` | No | Documented override; runtime uses `config/config.json` `comfyui.server_url`. |
 | `CARTOON_STUDIO_DB_PATH` | No | Direct SQLite path override (useful for tests). |

@@ -22,6 +22,7 @@ import type {
   ModelLists,
   ChatGPTTunnelStatus,
   ProductionOverview,
+  ProductionRegistry,
   ProductionRun,
   Project,
   ProviderStatusResponse,
@@ -29,6 +30,7 @@ import type {
   Scene,
   SceneReference,
   SettingsPayload,
+  ShotPlan,
   ValidateResult,
   VoiceAssignment,
   VoiceEnginesResponse,
@@ -457,7 +459,7 @@ export const api = {
       "/v1/models/recommendations"
     ),
 
-  aiHealth: () => request<{ status: string; openai: Record<string, any>; model: string | null }>("/v1/ai/health"),
+  aiHealth: () => request<{ status: string; openai: Record<string, any>; llm?: Record<string, any>; model: string | null }>("/v1/ai/health"),
   aiTools: () =>
     request<{ count: number; tools: AIToolDefinition[] }>("/v1/ai/tools"),
   aiConversations: (projectId?: string) =>
@@ -492,6 +494,22 @@ export const api = {
   productionOverview: (projectId?: string) =>
     request<ProductionOverview>(`/v1/production/overview${projectId ? `?project_id=${projectId}` : ""}`),
   productionStatus: (runId: string) => request<ProductionRun>(`/v1/production/status/${runId}`),
+  productionReport: (projectId?: string) =>
+    request<Record<string, any>>(`/v1/production/report${projectId ? `?project_id=${projectId}` : ""}`),
+  productionRegistry: () => request<ProductionRegistry>("/v1/registry"),
+  resourceStatus: () => request<Record<string, any>>("/v1/resources/status"),
+  freeResources: () => request<Record<string, any>>("/v1/resources/free", { method: "POST" }),
+  visionReview: (assetId: string, model = "qwen2.5vl:3b") =>
+    request<Record<string, any>>("/v1/llm/vision-review", {
+      method: "POST",
+      body: JSON.stringify({ asset_id: assetId, model }),
+    }),
+  getShotPlan: (episodeId: string) =>
+    request<ShotPlan>(`/v1/production/episodes/${episodeId}/shot-plan`),
+  buildShotPlan: (episodeId: string) =>
+    request<ShotPlan>(`/v1/production/episodes/${episodeId}/shot-plan`, { method: "POST" }),
+  estimateEpisode: (episodeId: string) =>
+    request<Record<string, any>>(`/v1/production/episodes/${episodeId}/estimate`),
   startProduction: (payload: {
     project_id: string;
     episode_id: string;
