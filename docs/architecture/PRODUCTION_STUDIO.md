@@ -160,7 +160,7 @@ This is not a photoreal lip-sync renderer. Mouth-shape rendering is blocked unti
 
 | Department | Status | Notes |
 |---|---|---|
-| Image generation | Ready | SD 1.5 installed; SDXL configured but blocked by missing checkpoint |
+| Image generation | Ready | SD 1.5 and SDXL (`DreamShaperXL_1.0.safetensors`) installed and verified |
 | Image editing | Partial | Qwen-Image-Edit/FLUX Kontext nodes exist, local weights missing; SD 1.5 img2img available |
 | Character consistency | Partial | Canonical reference + img2img + LoRA injection; IPAdapter/ControlNet weights missing |
 | Video generation | Partial | Wan 2.2 installed and tested; LTX/Hunyuan/CogVideoX weights missing |
@@ -185,7 +185,9 @@ This is not a photoreal lip-sync renderer. Mouth-shape rendering is blocked unti
 | Shot plan | Passed — 1 shot, 19.4 s estimated GPU time |
 | Production report | Passed — counts, statuses, resource usage, recent jobs |
 | SD 1.5 image generation | Passed — 384×384, asset `514163b98ec9` |
-| SDXL generation | Blocked — no SDXL checkpoint installed |
+| SDXL generation | Passed — 1024×1024, `DreamShaperXL_1.0.safetensors`, 30.3 s, peak 5602 MB, asset `343185cb8b15` |
+| SDXL workflows | Passed — all six `runnable=true` |
+| Four-view turnaround | Passed live — Leo sheet `71192986e23b`, 4 assets; prompt composition needs QA fixes |
 | Wan image-to-video | Passed — 320×192, 5 frames, asset `8224f26eb739`, 16.75 s, peak 3333 MB |
 | 4× upscale | Passed — 384→1536, asset `dd893937cbb2`, 5.77 s, peak 2471 MB |
 | Kokoro dialogue | Passed — 1.75 s WAV, asset `f9726f170b8f` |
@@ -197,7 +199,8 @@ This is not a photoreal lip-sync renderer. Mouth-shape rendering is blocked unti
 
 ## Remaining limitations
 
-- No SDXL checkpoint; SDXL tests are blocked.
+- SDXL is installed, but turnaround prompts can produce multi-view sheets and drift from the
+  character’s wardrobe; fix prompt composition before promoting references.
 - No Qwen-Image-Edit/FLUX Kontext local weights; image-edit tests are blocked.
 - No IPAdapter/SDXL ControlNet weights; reference conditioning uses img2img.
 - No Whisper/faster-whisper; ASR and audio-to-lip alignment are blocked.
@@ -216,7 +219,7 @@ This is not a photoreal lip-sync renderer. Mouth-shape rendering is blocked unti
 
 ## Operating guidance
 
-- Use SD 1.5 for quick iteration; install an SDXL checkpoint for final character art.
+- Use SD 1.5 for quick iteration; SDXL (`DreamShaperXL_1.0.safetensors`) is now the verified character-art checkpoint.
 - Use Wan only for short shots at low resolution on this GPU.
 - Keep batch size 1 and tiled VAE enabled.
 - Free VRAM between model families.

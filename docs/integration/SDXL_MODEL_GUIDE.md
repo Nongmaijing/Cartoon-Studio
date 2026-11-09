@@ -14,18 +14,18 @@ ComfyUI 0.44.2, RTX 4050 Laptop, 6 GB VRAM, 32 GB RAM.
 
 | Item | Installed |
 |---|---|
-| Checkpoints | `DreamShaper_8_pruned.safetensors` (SD 1.5), `v1-5-pruned-emaonly-fp16.safetensors` (SD 1.5) |
-| SDXL checkpoint | **None** |
+| Checkpoints | `DreamShaperXL_1.0.safetensors` (SDXL, 6.60 GB), `DreamShaper_8_pruned.safetensors` (SD 1.5), `v1-5-pruned-emaonly-fp16.safetensors` (SD 1.5) |
+| SDXL checkpoint | **`DreamShaperXL_1.0.safetensors`** — selected in Model Studio |
 | VAEs | `wan2.2_vae.safetensors` (Wan), `pixel_space` (ComfyUI internal) |
-| SDXL VAE | **None** |
+| SDXL VAE | Not needed separately — the converted checkpoint contains its VAE (`first_stage_model.*`) |
 | LoRAs | **None** |
 | ControlNet models | **None** |
 | Upscaler | `4x-UltraSharp.pth` |
 | Custom nodes | **None** (only ComfyUI core) |
 | Model directories | `D:\bro\ComfyUI\Models`, `ComfyUI-Shared\models`, install `models` |
-| ComfyUI low-VRAM flag | **Not set** |
+| ComfyUI low-VRAM flag | **Not set** (SDXL still ran at 1024×1024) |
 
-The Model Studio reports these findings and marks SDXL generation as blocked until an SDXL checkpoint is installed and selected.
+`DreamShaperXL_1.0.safetensors` was installed on 2026-11-10 and is the active SDXL checkpoint. The Model Studio no longer reports SDXL as blocked.
 
 ---
 
@@ -43,6 +43,38 @@ The Model Studio reports these findings and marks SDXL generation as blocked unt
 6. The active model line should switch from SD 1.5 to SDXL.
 
 Cartoon Studio never writes to ComfyUI model folders and never downloads or installs weights.
+
+### Installing DreamShaper XL 1.0 (actual procedure)
+
+The official `Lykon/dreamshaper-xl-1-0` repository is **Diffusers format**, not a single-file
+ComfyUI checkpoint: it contains `unet/`, `text_encoder/`, `text_encoder_2/`, `vae/`, and
+`model_index.json`, with no root `.safetensors`. Licence: **CreativeML Open RAIL++-M**
+(`openrail++`, repo id `Lykon/dreamshaper-xl-1-0`, not gated).
+
+What was done on this machine:
+
+1. Downloaded only the fp16 Diffusers components (~6.60 GB total) into
+   `C:\Users\pagau\AppData\Local\Comfy-Desktop\ComfyUI-Shared\models\diffusers\dreamshaper-xl-1-0`.
+   The full-precision UNet (~10.3 GB) was skipped for a 6 GB GPU.
+2. Installed `diffusers==0.35.2` into the ComfyUI virtual environment (0.42.x was
+   incompatible with the installed `huggingface_hub`; installed with `--no-deps`).
+3. Converted the Diffusers pipeline to one ComfyUI-ready checkpoint with Hugging Face’s
+   `scripts/convert_diffusers_to_original_sdxl.py` (fp16 file fallback), then wrote
+   `DreamShaperXL_1.0.safetensors` (6.60 GB) into the shared `models\checkpoints`.
+
+Notes for future installs:
+
+- Do **not** hand-merge `ModelSave`/`CLIPSave`/`VAESave` output unless you know the exact key
+  conventions. CLIP-L uses `conditioner.embedders.0.transformer.text_model.*`; CLIP-G must use
+  the OpenCLIP layout `conditioner.embedders.1.model.transformer.resblocks.*`,
+  `.positional_embedding`, `.ln_final.*`, `.text_projection`; the VAE uses
+  `first_stage_model.*`; the UNet uses `model.diffusion_model.*`. A transformers-style CLIP-G
+  layout (`...model.transformer.text_model.*`) fails at CLIP encoding with
+  `Cannot copy out of meta tensor; no data!`.
+- `CheckpointSave` currently fails on this ComfyUI build with
+  `empty() received an invalid combination of arguments - got (list, dtype=torch.dtype, device=FakeDevice)`.
+  Use the conversion script instead of the save node.
+- Keep the Diffusers source folder: it is the reproducible source for the converted checkpoint.
 
 ### Adding another model directory
 
@@ -88,7 +120,8 @@ All SDXL templates:
 - support optional VAE and LoRA injection by the workflow adapter;
 - default to batch size 1;
 - are structurally valid against the live ComfyUI node set;
-- are **not runnable until an SDXL checkpoint is installed** (reported by `/api/workflows`).
+- are **runnable** now that `DreamShaperXL_1.0.safetensors` is installed and selected
+  (`/api/workflows` reports `runnable=true` for all six and resolves that checkpoint).
 
 The SD 1.5 workflows are unchanged and remain runnable.
 
@@ -127,7 +160,7 @@ These are recommendations only. Verify the exact license and current version on 
 | Model | Source | License | Approx. size | VRAM | Suitability |
 |---|---|---|---|---|---|
 | **SDXL Base 1.0** | `stabilityai/stable-diffusion-xl-base-1.0` | CreativeML Open RAIL++-M | ~6.9 GB fp16 | 8–10 GB recommended; 6 GB with low-VRAM/tiled VAE | General base; add a cartoon LoRA |
-| **DreamShaper XL** | Civitai model page | CreativeML Open RAIL++-M (verify version) | ~6.5–7 GB | 6–8 GB with low-VRAM | Good stylized illustration starting point |
+| **DreamShaper XL** | `Lykon/dreamshaper-xl-1-0` (Diffusers format; converted locally) | CreativeML Open RAIL++-M | 6.60 GB fp16 | 6 GB works at 1024×1024; measured ~5.6 GB peak | Good stylized illustration; **installed and active** |
 | **Blue Pencil XL** | Civitai model page | CreativeML Open RAIL++-M (verify version) | ~6.5 GB | 6–8 GB with low-VRAM | Line-art/illustration; test flat-color prompts |
 | **Juggernaut XL** | Civitai model page | CreativeML Open RAIL++-M (verify version) | ~6.5–7 GB | 8 GB preferred | Detailed/general; less suited to flat 2D TV cartoons |
 | **Cartoon style SDXL LoRA** | Civitai/Hugging Face | Varies by model card | ~100–300 MB | Minimal | Style layer on SDXL Base/DreamShaper; check commercial terms |
@@ -140,48 +173,91 @@ Reference conditioning: img2img works with the core workflow. SDXL ControlNet/IP
 
 | Test | Result |
 |---|---|
-| Model discovery | Passed — 2 checkpoints, 2 VAEs, 0 LoRAs, 0 ControlNet, 1 upscaler |
-| SDXL missing-checkpoint reporting | Passed — catalog marks SDXL as blocked and falls back to SD 1.5 |
-| No automatic download | Passed — the catalog only scans files and reads safetensors headers |
-| SDXL workflow structural validation | Passed — all six SDXL workflows are structurally valid |
-| SDXL workflow runnable status | Blocked — no SDXL checkpoint installed |
-| SDXL character generation | Blocked — no SDXL checkpoint installed |
-| Four-view turnaround | Implemented; mocked queue test passed; live SDXL run blocked |
-| Expression sheet | Implemented; mocked 8-image queue test passed; live SDXL run blocked |
-| Pose sheet | Implemented; mocked queue test passed; live SDXL run blocked |
-| 16:9 village background | Template valid; live SDXL run blocked |
-| SD 1.5 regression | Passed — live 512×512 job `49d325544c3f`, asset `d5c70209dd33` |
-| Cartoon Studio asset registration | Passed for the SD 1.5 regression output |
-| Automated tests | **35 passed** |
-| Frontend production build | Passed |
-| Model Studio page | HTTP 200, bundle contains the new UI |
+| Model discovery | Passed — 3 checkpoints (1 SDXL), 2 VAEs, 0 LoRAs, 0 ControlNet, 1 upscaler |
+| SDXL checkpoint listing | Passed — `CheckpointLoaderSimple` lists `DreamShaperXL_1.0.safetensors` |
+| SDXL checkpoint load + encode | Passed — 512×512, 1 step, 8.0 s total round trip |
+| Six SDXL workflows runnable | Passed — all six `runnable=true`, checkpoint resolved |
+| SDXL character generation | **Passed** — 1024×1024, `DreamShaperXL_1.0.safetensors` |
+| Four-view turnaround (Leo) | **Passed** — 4/4 images, sheet `71192986e23b`, seed `20261110` |
+| Turnaround timing | 30.3–30.6 s per image (four images sequential) |
+| Peak VRAM | 5570–5616 MB per job (GPU total 6144 MB) |
+| System RAM during run | 31.71 GB total, ~10.7 GB available, ~66% used |
+| Output dimensions | 1024×1024 PNG, RGB, 1.2–1.3 MB each |
+| Actual model name in job record | `DreamShaperXL_1.0.safetensors`, architecture `sdxl` |
+| Asset registration | Passed — 4 assets attached to Leo with role `reference` |
+| Leo approval state | Unchanged — `draft`, no canonical asset |
+| SD 1.5 regression | Passed — 512×512 job `49d325544c3f`, asset `d5c70209dd33` |
+| Automated tests | **42 passed** |
 
-VRAM measured during the audit:
+### Leo turnaround assets (live SDXL run)
 
-- Total: ~6.0 GB
-- Free at audit: ~2.87 GB
-- ComfyUI low-VRAM flag: not set
-- SDXL runtime VRAM is not measured because no SDXL checkpoint is installed.
+| View | Job | Asset | Dimensions |
+|---|---|---|---|
+| front | `01fb540589e4` | `343185cb8b15` | 1024×1024 |
+| three-quarter | `96c1b1d790ce` | `2942e4c6e079` | 1024×1024 |
+| side | `60d677c008ad` | `565777291a75` | 1024×1024 |
+| back | `c8554c0cc1b0` | `02ddfef37dcf` | 1024×1024 |
+
+Measured runtime resources:
+
+- GPU: RTX 4050 Laptop, 6.0 GB total; ~5.6 GB peak during SDXL sampling; ~1.0 GB free after.
+- The checkpoint stays resident in VRAM between jobs (~5.0 GB used at idle after the run).
+- ComfyUI was **not** started with `--lowvram`; the run still completed at 1024×1024.
+- No OOM, no SD 1.5 fallback: every job record names `DreamShaperXL_1.0.safetensors`.
+
+### Quality findings from the one Leo turnaround
+
+These are reported honestly; they do not block the SDXL validation but must be fixed
+before the turnaround can be used as a canonical character reference.
+
+1. **Each image contains a three-view sheet, not one requested view.** The prompt path in
+   `creative.character_prompt` does not add `no multiple views` for turnaround, and the
+   sheet extra prompt says `production turnaround reference`, which SDXL interprets as a
+   multi-view sheet. Each of the four “views” therefore rendered a front / three-quarter /
+   side trio; the `back` image still shows faces.
+2. **Wardrobe drift.** Leo’s profile specifies a mustard-yellow top, teal-blue short
+   overalls with a star patch, white sneakers and a yellow backpack. The outputs show a teal
+   cap, teal shirt/shorts, a mustard utility vest and brown shoes.
+3. **Non-human prompt wording.** `creative.character_prompt` uses the phrase
+   `single full body cartoon animal character` for every non-expression/pose request, which
+   is wrong for human characters such as Leo.
+
+See “Next operator action” for the recommended fix. Leo was **not** approved, and none of
+these images were promoted to a canonical reference.
 
 ---
 
 ## Limitations on a 6 GB RTX 4050
 
-- SDXL at 1024×1024 is feasible with tiled VAE and low-VRAM mode, but slower than SD 1.5.
-- Higher resolutions and batch sizes can cause CUDA OOM; the dimension guard blocks the most dangerous requests and batch size is fixed to 1 for SDXL.
+- SDXL at 1024×1024 is feasible on this machine: measured 30.3–30.6 s per image, peak
+  ~5.6 GB of 6.1 GB VRAM, without `--lowvram`.
+- Headroom is small (~0.5 GB). Higher resolutions, batch sizes above 1, or running another
+  GPU model at the same time can still OOM. The dimension guard blocks requests above
+  1,250,000 pixels and batch size is fixed to 1 for SDXL.
+- Turnaround prompt composition currently yields multi-view sheets and drifts from the
+  character’s wardrobe; see the quality findings above. This is a prompt/QA issue, not an
+  SDXL loading issue.
 - SDXL ControlNet/IPAdapter models are not installed; pose/reference work uses img2img.
 - SDXL video is not part of this upgrade; Wan 2.2 remains the video path.
-- Quick generation of 8-expression/8-pose sheets is serialized by the single-worker queue and can take a long time. Start with one view/expression for quality checks.
-- ComfyUI must be restarted manually to apply `--lowvram`; Cartoon Studio only reports and recommends it.
+- Quick generation of 8-expression/8-pose sheets is serialized by the single-worker queue and
+  can take a long time (~30 s per image plus model switching). Start with one view before
+  queueing full sheets.
+- ComfyUI must be restarted manually to apply `--lowvram`; Cartoon Studio only reports and
+  recommends it.
 - Model licensing and commercial-use terms are the operator’s responsibility.
 
 ---
 
 ## Next operator action
 
-1. Choose an SDXL checkpoint from the table above.
-2. Download it manually and place it in a configured `checkpoints` directory.
-3. Optionally install an SDXL VAE and a cartoon LoRA.
-4. Restart/refresh ComfyUI.
-5. Open **Model Studio**, refresh, select the checkpoint/VAE/LoRA, save.
-6. Run one 1024×1024 character test before queueing full sheets.
+1. Fix turnaround prompt composition before using these outputs as references:
+   - add `no multiple views` to the turnaround `_extra_prompt` in
+     `backend/app/services/character_sheet_service.py`;
+   - stop using `production turnaround reference` as a per-view phrase;
+   - remove the hard-coded `cartoon animal character` wording for human characters in
+     `backend/app/services/creative.py`.
+2. Re-run one turnaround and visually compare the four views against Leo’s wardrobe
+   description; only then consider promoting a view to `canonical_asset_id`.
+3. Approve Leo explicitly (he is still `draft`) before expression or pose sheets.
+4. Optionally install an SDXL cartoon LoRA and an SDXL VAE for style control.
+5. Consider `--lowvram` if future SDXL work adds ControlNet/IPAdapter or larger batch sizes.

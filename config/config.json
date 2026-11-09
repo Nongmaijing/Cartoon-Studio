@@ -37,7 +37,7 @@
     "default_architecture": "sdxl",
     "checkpoints": {
       "sd15": "DreamShaper_8_pruned.safetensors",
-      "sdxl": ""
+      "sdxl": "DreamShaperXL_1.0.safetensors"
     },
     "vae": {
       "sd15": "",
