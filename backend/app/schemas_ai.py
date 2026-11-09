@@ -48,5 +48,10 @@ class ProviderConfigUpdate(BaseModel):
     enabled: bool | None = None
 
 
+class TunnelStartRequest(BaseModel):
+    confirm: bool = False
+    ttl_minutes: int = 30
+
+
 class ApprovalRequest(BaseModel):
     notes: str = ""

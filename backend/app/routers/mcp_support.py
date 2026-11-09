@@ -8,10 +8,15 @@ from ..ai.tool_registry import ToolContext, tool_registry
 from ..core.runtime import integration_status, mcp_settings
 from ..core.security import create_mcp_token
 from ..db import execute, now, query
-from ..schemas_ai import MCPTokenCreate, MCPToolExecuteRequest
+from ..schemas_ai import MCPTokenCreate, MCPToolExecuteRequest, TunnelStartRequest
+from ..services import mcp_tunnel_service
 from ..services.errors import ServiceError
 
 router = APIRouter(prefix="/api/v1/mcp", tags=["mcp-support"])
+
+
+def _raise(exc: ServiceError) -> None:
+    raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.get("/status")
@@ -84,3 +89,28 @@ async def execute_tool(tool_name: str, payload: MCPToolExecuteRequest) -> dict[s
         )
     except ServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.get("/tunnel/status")
+async def tunnel_status() -> dict[str, Any]:
+    return await mcp_tunnel_service.get_status()
+
+
+@router.post("/tunnel/start")
+async def tunnel_start(payload: TunnelStartRequest) -> dict[str, Any]:
+    try:
+        return await mcp_tunnel_service.start_tunnel(
+            confirm=payload.confirm,
+            ttl_minutes=payload.ttl_minutes,
+            actor="user",
+        )
+    except ServiceError as exc:
+        _raise(exc)
+
+
+@router.post("/tunnel/stop")
+async def tunnel_stop() -> dict[str, Any]:
+    try:
+        return await mcp_tunnel_service.stop_tunnel(actor="user", reason="user")
+    except ServiceError as exc:
+        _raise(exc)

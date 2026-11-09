@@ -76,6 +76,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Chat, tool status, production dashboard, approvals.
 - [x] SSE progress updates.
 - [x] Provider/GPU availability display.
+- [x] One-click ChatGPT connection panel: start tunnel, copy connector URL, auto-secure after 30 minutes, manual disconnect/restore.
 - [x] Production build passes.
 
 ## Phase 10 — Security and access control
@@ -95,7 +96,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Mocked production task execution.
 - [x] Mocked OpenAI Responses tool loop.
 - [x] Existing API regression checks performed manually.
-- Result: **20 passed**.
+- Result: **24 passed**.
 
 ## Phase 12 — Documentation and deployment
 - [x] Architecture, development, integration and operations docs.

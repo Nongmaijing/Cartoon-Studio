@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useProject } from "../ProjectContext";
 import type {
   AIConversation,
   AIMessage,
+  ChatGPTTunnelStatus,
   Episode,
   ProductionOverview,
   ProductionRun,
@@ -53,6 +54,9 @@ export default function Director() {
   const [aiModel, setAiModel] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [tunnel, setTunnel] = useState<ChatGPTTunnelStatus | null>(null);
+  const [tunnelBusy, setTunnelBusy] = useState(false);
+  const [tunnelError, setTunnelError] = useState("");
   const messagesRef = useRef<HTMLDivElement | null>(null);
 
   const selectedProject = projects.find((project) => project.id === selectedId) || null;
@@ -63,6 +67,15 @@ export default function Director() {
     window.setTimeout(() => {
       if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     }, 50);
+  }, []);
+
+  const loadTunnel = useCallback(async () => {
+    try {
+      setTunnel(await api.chatgptTunnelStatus());
+      setTunnelError("");
+    } catch (exc) {
+      setTunnelError(exc instanceof Error ? exc.message : String(exc));
+    }
   }, []);
 
   const loadOverview = useCallback(async () => {
@@ -123,6 +136,12 @@ export default function Director() {
   useEffect(() => {
     loadProjectData();
   }, [loadProjectData]);
+
+  useEffect(() => {
+    loadTunnel();
+    const timer = window.setInterval(loadTunnel, 5000);
+    return () => window.clearInterval(timer);
+  }, [loadTunnel]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -309,6 +328,57 @@ export default function Director() {
     }
   };
 
+  const connectChatGPT = async () => {
+    if (
+      !window.confirm(
+        "Start a public Cloudflare tunnel with MCP authentication disabled?\n\n" +
+          "Anyone with the connector URL can control this Cartoon Studio instance. " +
+          "The tunnel and no-auth mode stop automatically after 30 minutes."
+      )
+    ) {
+      return;
+    }
+    setTunnelBusy(true);
+    setTunnelError("");
+    setNotice("Starting the ChatGPT tunnel. This can take 20–40 seconds…");
+    try {
+      const status = await api.startChatGPTTunnel({ confirm: true, ttl_minutes: 30 });
+      setTunnel(status);
+      setNotice("ChatGPT tunnel is live. Copy the connector URL into ChatGPT.");
+    } catch (exc) {
+      setTunnelError(exc instanceof Error ? exc.message : String(exc));
+      setNotice("");
+    } finally {
+      setTunnelBusy(false);
+    }
+  };
+
+  const disconnectChatGPT = async () => {
+    setTunnelBusy(true);
+    setTunnelError("");
+    setNotice("Stopping the tunnel and restoring bearer authentication…");
+    try {
+      const status = await api.stopChatGPTTunnel();
+      setTunnel(status);
+      setNotice("Tunnel stopped. MCP bearer authentication is restored.");
+    } catch (exc) {
+      setTunnelError(exc instanceof Error ? exc.message : String(exc));
+      setNotice("");
+    } finally {
+      setTunnelBusy(false);
+    }
+  };
+
+  const copyConnectorUrl = async () => {
+    if (!tunnel?.connector_url) return;
+    try {
+      await navigator.clipboard.writeText(tunnel.connector_url);
+      setNotice("Connector URL copied. Paste it into ChatGPT.");
+    } catch {
+      setTunnelError("Could not copy automatically. Select and copy the URL manually.");
+    }
+  };
+
   const startProduction = async () => {
     if (!selectedId || !selectedEpisodeId) {
       setError("Select an episode before starting production.");
@@ -432,6 +502,98 @@ export default function Director() {
           </Alert>
         </div>
       )}
+
+      <section className={`panel chatgpt-connect${tunnel?.active ? " live" : ""}`}>
+        <div className="panel-head">
+          <div>
+            <h2>ChatGPT Connection</h2>
+            <div className="panel-sub">
+              One-click temporary MCP tunnel. Auto-secures after 30 minutes.
+            </div>
+          </div>
+          <span className={`chip ${tunnel?.active ? "exp" : ""}`}>
+            {tunnel?.active ? "Tunnel live" : "Off"}
+          </span>
+        </div>
+
+        {tunnelError && (
+          <div style={{ marginBottom: 10 }}>
+            <Alert kind="error">{tunnelError}</Alert>
+          </div>
+        )}
+
+        {!tunnel?.active ? (
+          <div className="chatgpt-connect-body">
+            <p className="tiny muted">
+              Starts a Cloudflare quick tunnel to port 8020 and temporarily switches MCP to no-auth
+              mode. Anyone with the connector URL can control production. The tunnel and no-auth
+              mode stop automatically after 30 minutes.
+            </p>
+            <div className="row">
+              <button
+                className="btn primary"
+                onClick={connectChatGPT}
+                disabled={tunnelBusy || tunnel?.cloudflared_available === false}
+              >
+                {tunnelBusy ? "Starting tunnel…" : "Connect ChatGPT"}
+              </button>
+              <button className="btn ghost" onClick={loadTunnel} disabled={tunnelBusy}>
+                Refresh
+              </button>
+              {tunnel?.cloudflared_available === false && (
+                <span className="tiny" style={{ color: "var(--danger)" }}>
+                  cloudflared not found
+                </span>
+              )}
+            </div>
+            <div className="tiny muted">
+              Requires ChatGPT Business/Enterprise/Edu with custom MCP connectors enabled.
+            </div>
+          </div>
+        ) : (
+          <div className="chatgpt-connect-body">
+            <Alert kind="warn">
+              No-auth mode is live. Anyone with this URL can control production. The tunnel stops
+              automatically in {Math.max(0, Math.ceil((tunnel.remaining_seconds ?? 0) / 60))} min.
+            </Alert>
+            {tunnel.public_reachable === false && (
+              <Alert kind="warn">
+                The public URL is not reachable yet. Wait a few seconds, then click Refresh status
+                before adding the connector.
+              </Alert>
+            )}
+            <div className="chatgpt-url-row">
+              <code>{tunnel.connector_url}</code>
+              <button className="btn sm" onClick={copyConnectorUrl}>
+                Copy URL
+              </button>
+            </div>
+            <ol className="chatgpt-steps">
+              <li>
+                Open{" "}
+                <a className="link" href="https://chatgpt.com/plugins" target="_blank" rel="noreferrer">
+                  ChatGPT Plugins
+                </a>
+                .
+              </li>
+              <li>Add a custom MCP server / connector.</li>
+              <li>Paste the connector URL above.</li>
+              <li>
+                Choose <strong>No authentication</strong>.
+              </li>
+              <li>Create it, scan tools, and enable the connector.</li>
+            </ol>
+            <div className="row">
+              <button className="btn" onClick={disconnectChatGPT} disabled={tunnelBusy}>
+                {tunnelBusy ? "Securing…" : "Disconnect & secure"}
+              </button>
+              <button className="btn ghost" onClick={loadTunnel} disabled={tunnelBusy}>
+                Refresh status
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="split">
         <section className="panel">

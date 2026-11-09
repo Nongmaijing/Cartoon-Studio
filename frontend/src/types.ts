@@ -637,3 +637,20 @@ export interface ProductionOverview {
   };
   providers: ProviderStatusResponse;
 }
+
+export interface ChatGPTTunnelStatus {
+  active: boolean;
+  public_url: string | null;
+  connector_url: string | null;
+  host: string | null;
+  auth_mode: string;
+  mcp_running: boolean;
+  mcp_auth: string | null;
+  expires_at: number | null;
+  remaining_seconds: number | null;
+  ttl_minutes: number;
+  public_reachable: boolean;
+  cloudflared_available: boolean;
+  warning: string;
+  message: string;
+}

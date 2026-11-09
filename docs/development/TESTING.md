@@ -7,7 +7,7 @@ cd D:\bro\CartoonStudio\backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Current result: **20 passed**.
+Current result: **24 passed**.
 
 ## Test files
 
@@ -19,6 +19,7 @@ Current result: **20 passed**.
 | `tests/test_production_mock.py` | Mocked scene production task execution and run completion |
 | `tests/test_ai_director_mock.py` | Mocked OpenAI Responses tool loop, persistence, previous_response_id |
 | `tests/test_mcp_config.py` | Transport host/origin allowlist, no-auth opt-in guard, invalid auth mode rejection |
+| `tests/test_mcp_tunnel.py` | Cloudflared URL parsing, confirmation gate, inactive tunnel status shape |
 
 ## Mocking policy
 

@@ -27,6 +27,41 @@ workspace policy does not allow it.
 
 ---
 
+## Fastest path — one-click from the Cartoon Studio UI
+
+1. Start the backend and open the **AI Director** page:
+   `http://127.0.0.1:8010/director`
+2. Find the **ChatGPT Connection** panel.
+3. Click **Connect ChatGPT**.
+4. Wait for the connector URL, for example:
+   `https://random-words.trycloudflare.com/mcp`
+5. Copy the URL.
+6. In ChatGPT, add a custom MCP server with that URL and **No authentication**.
+7. Click **Disconnect & secure** when finished.
+
+What the button does:
+
+- starts `cloudflared tunnel --url http://127.0.0.1:8020`;
+- captures the public URL;
+- restarts MCP with `MCP_AUTH_MODE=none`, `MCP_ALLOW_UNAUTHENTICATED=true`, and the tunnel host allowlist;
+- verifies local and public health;
+- shows the connector URL;
+- auto-stops the tunnel and restores bearer auth after 30 minutes, or immediately when you click **Disconnect & secure**.
+
+Requirements:
+
+- `cloudflared` installed and on PATH (already installed here).
+- ChatGPT Business/Enterprise/Edu with custom MCP connectors enabled.
+- Keep the backend running while the tunnel is active.
+
+Security: the connector is unauthenticated while the tunnel is live. Anyone with
+the URL can control production. Use it for a short local test and click
+**Disconnect & secure** afterwards.
+
+The manual steps below are the same flow without the UI.
+
+---
+
 ## Path A — local ChatGPT test with no authentication
 
 This is the fastest way to prove the connection. It disables MCP authentication,

@@ -16,6 +16,7 @@ import type {
   Job,
   MediaItem,
   ModelLists,
+  ChatGPTTunnelStatus,
   ProductionOverview,
   ProductionRun,
   Project,
@@ -487,6 +488,14 @@ export const api = {
       body: JSON.stringify({ notes }),
     }),
   mcpStatus: () => request<Record<string, any>>("/v1/mcp/status"),
+  chatgptTunnelStatus: () => request<ChatGPTTunnelStatus>("/v1/mcp/tunnel/status"),
+  startChatGPTTunnel: (payload: { confirm: boolean; ttl_minutes: number }) =>
+    request<ChatGPTTunnelStatus>("/v1/mcp/tunnel/start", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  stopChatGPTTunnel: () =>
+    request<ChatGPTTunnelStatus>("/v1/mcp/tunnel/stop", { method: "POST" }),
 
   comfyTest: () => request<ComfyTest>("/comfy/test"),
   discovery: () => request<DiscoveryInfo>("/comfy/discovery"),

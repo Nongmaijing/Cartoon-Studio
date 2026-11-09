@@ -5,6 +5,7 @@
 - Windows, Python 3.11, Node 18+.
 - ComfyUI 0.44.2 running at `http://127.0.0.1:8188`.
 - FFmpeg available (configured or on PATH).
+- `cloudflared` installed for the one-click ChatGPT tunnel (already installed here at `C:\Program Files (x86)\cloudflared\cloudflared.exe`).
 - The existing Cartoon Studio database and `outputs/` tree preserved.
 
 ## 2. Install backend dependencies
