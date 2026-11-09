@@ -16,6 +16,7 @@ from .creative import NEGATIVE_DEFAULT, VIDEO_NEGATIVE, scene_prompt
 from .errors import NotFoundError, ServiceError
 from .generation import upload_start_image
 from .media import list_media
+from .model_config_service import resolve_image_model
 from .scenes import decorate_scene, get_scene, raw_scene, scene_characters, scene_settings
 
 
@@ -178,12 +179,27 @@ async def generate_scene_image(
     settings = scene_settings(raw_scene(scene_id) or {})
     characters = scene_characters(scene_id)
     composed = scene_prompt(scene, scene.get("background"), characters, "keyframe", prompt)
-    target_w, target_h = _image_size(scene, width, height, settings)
+    config = load_config()
     reference_asset_id = reference_asset_id or settings.get("reference_asset_id")
+    explicit_size = any(
+        [
+            width,
+            height,
+            settings.get("width"),
+            settings.get("height"),
+            (scene.get("background") or {}).get("width"),
+            (scene.get("background") or {}).get("height"),
+        ]
+    )
+    target_w, target_h = _image_size(scene, width, height, settings) if explicit_size else (None, None)
+    model = resolve_image_model(
+        config,
+        purpose="scene",
+        input_image=bool(reference_asset_id),
+    )
     input_image = None
     mode = "text-to-image"
     control_net_name = None
-    config = load_config()
     client = ComfyClient(
         config["comfyui"]["server_url"],
         timeout=float(config["comfyui"].get("request_timeout_seconds", 120)),
@@ -192,8 +208,12 @@ async def generate_scene_image(
         object_info = await client.object_info()
         mode = resolve_image_mode(object_info, reference_mode, True)
         if mode == "controlnet-pose":
-            workflow_id = workflow_id or "sd15_controlnet_pose"
-            control_net_name = controlnet_model(object_info)
+            if model["architecture"] == "sd15":
+                workflow_id = workflow_id or "sd15_controlnet_pose"
+                control_net_name = controlnet_model(object_info)
+            else:
+                mode = "image-to-image"
+                control_net_name = None
         input_image = await upload_start_image(config, client, reference_asset_id, project_id)
     provider = registry.get("image")
     result = await provider.generate_image(
@@ -202,15 +222,16 @@ async def generate_scene_image(
         negative_prompt=negative_prompt or NEGATIVE_DEFAULT,
         width=target_w,
         height=target_h,
-        steps=steps or settings.get("steps") or 28,
-        cfg=cfg if cfg is not None else settings.get("cfg", 6.5),
-        seed=seed if seed is not None else settings.get("seed", -1),
+        steps=steps if steps is not None else settings.get("steps"),
+        cfg=cfg if cfg is not None else settings.get("cfg"),
+        seed=seed if seed is not None else settings.get("seed"),
         workflow_id=workflow_id or settings.get("workflow_id"),
         scene_id=scene_id,
         input_image=input_image,
         denoise=denoise if reference_asset_id else None,
         control_strength=control_strength if mode == "controlnet-pose" else None,
         control_net_name=control_net_name,
+        purpose="scene",
         attach={
             "owner_type": "scene",
             "owner_id": scene_id,
@@ -218,14 +239,17 @@ async def generate_scene_image(
             "label": "keyframe",
         },
     )
+    job_params = ((result.get("job") or {}).get("params") or {}) if isinstance(result.get("job"), dict) else {}
+    final_w = job_params.get("width") or target_w
+    final_h = job_params.get("height") or target_h
     log(actor, "generate_scene_image", "scene", scene_id, {"mode": mode, "job_id": result.get("job_id")})
     return {
         **result,
         "scene_id": scene_id,
         "prompt": composed,
         "mode": mode,
-        "width": target_w,
-        "height": target_h,
+        "width": final_w,
+        "height": final_h,
         "reference_asset_id": reference_asset_id,
         "fallback": bool(reference_asset_id) and reference_mode == "pose" and mode != "controlnet-pose",
     }

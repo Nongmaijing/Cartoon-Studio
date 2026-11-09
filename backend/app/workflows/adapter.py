@@ -145,3 +145,107 @@ def build_prompt(
             applied.append("seed")
 
     return prompt, applied
+
+
+def _find_checkpoint(api: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None]:
+    for node_id, node in api.items():
+        if node.get("class_type") == "CheckpointLoaderSimple":
+            return str(node_id), node
+    return None, None
+
+
+def _rewire(
+    api: dict[str, Any],
+    source_id: str,
+    source_output: int,
+    target_id: str,
+    target_output: int,
+    skip_ids: set[str] | None = None,
+) -> None:
+    skip = skip_ids or set()
+    for node_id, node in api.items():
+        if node_id in skip:
+            continue
+        inputs = node.get("inputs") or {}
+        for key, value in list(inputs.items()):
+            if (
+                isinstance(value, list)
+                and len(value) == 2
+                and str(value[0]) == str(source_id)
+                and int(value[1]) == int(source_output)
+            ):
+                inputs[key] = [target_id, int(target_output)]
+
+
+def _unique_node_id(api: dict[str, Any], base: str) -> str:
+    node_id = base
+    counter = 2
+    while node_id in api:
+        node_id = f"{base}_{counter}"
+        counter += 1
+    return node_id
+
+
+def apply_vae(api: dict[str, Any], params: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Optionally inject a VAELoader and rewire the graph to use it."""
+    vae_name = params.get("vae")
+    if not vae_name:
+        return api, False
+    checkpoint_id, checkpoint = _find_checkpoint(api)
+    if not checkpoint:
+        raise ValueError("A VAE selection requires a CheckpointLoaderSimple workflow.")
+    existing = next(
+        (
+            (node_id, node)
+            for node_id, node in api.items()
+            if node.get("class_type") == "VAELoader" and "vae_name" in (node.get("inputs") or {})
+        ),
+        None,
+    )
+    if existing:
+        node_id, node = existing
+        node["inputs"]["vae_name"] = vae_name
+    else:
+        node_id = _unique_node_id(api, "model_vae")
+        api[node_id] = {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}}
+    _rewire(api, checkpoint_id, 2, node_id, 0, skip_ids={node_id})
+    return api, True
+
+
+def apply_lora(api: dict[str, Any], params: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Optionally inject a LoraLoader and rewire model/clip links."""
+    lora_name = params.get("lora_name")
+    if not lora_name:
+        return api, False
+    checkpoint_id, checkpoint = _find_checkpoint(api)
+    if not checkpoint:
+        raise ValueError("A LoRA selection requires a CheckpointLoaderSimple workflow.")
+    try:
+        strength = float(params.get("lora_strength") or 0.8)
+    except (TypeError, ValueError):
+        strength = 0.8
+    node_id = _unique_node_id(api, "model_lora")
+    api[node_id] = {
+        "class_type": "LoraLoader",
+        "inputs": {
+            "model": [checkpoint_id, 0],
+            "clip": [checkpoint_id, 1],
+            "lora_name": lora_name,
+            "strength_model": strength,
+            "strength_clip": strength,
+        },
+    }
+    _rewire(api, checkpoint_id, 0, node_id, 0, skip_ids={node_id})
+    _rewire(api, checkpoint_id, 1, node_id, 1, skip_ids={node_id})
+    return api, True
+
+
+def apply_model_adapters(api: dict[str, Any], params: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    applied: list[str] = []
+    api, vae_applied = apply_vae(api, params)
+    if vae_applied:
+        applied.append("vae")
+    api, lora_applied = apply_lora(api, params)
+    if lora_applied:
+        applied.append("lora")
+    return api, applied

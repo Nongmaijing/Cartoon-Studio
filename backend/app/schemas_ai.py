@@ -48,6 +48,10 @@ class ProviderConfigUpdate(BaseModel):
     enabled: bool | None = None
 
 
+class ModelConfigUpdate(BaseModel):
+    models: dict[str, Any] = Field(default_factory=dict)
+
+
 class TunnelStartRequest(BaseModel):
     confirm: bool = False
     ttl_minutes: int = Field(default=30, description="Minutes until auto-secure; 0 means never auto-stop")

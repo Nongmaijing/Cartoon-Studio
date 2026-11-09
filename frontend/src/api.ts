@@ -6,6 +6,8 @@ import type {
   Asset,
   Background,
   Character,
+  CharacterSheetJob,
+  CharacterSheetStatus,
   ComfyTest,
   DashboardData,
   DialogueLine,
@@ -15,6 +17,8 @@ import type {
   EpisodeTimeline,
   Job,
   MediaItem,
+  ModelCatalog,
+  ModelConfig,
   ModelLists,
   ChatGPTTunnelStatus,
   ProductionOverview,
@@ -122,6 +126,25 @@ export const api = {
   ) => request<Character>(`/characters/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   characterMedia: (id: string) => request<MediaItem[]>(`/characters/${id}/media`),
   characterJobs: (id: string) => request<Job[]>(`/characters/${id}/jobs`),
+  characterModel: (id: string) =>
+    request<{ character_id: string; model: Record<string, any> }>(`/characters/${id}/model`),
+  approveCharacter: (id: string) =>
+    request<Record<string, any>>(`/characters/${id}/approve`, { method: "POST" }),
+  updateCharacterModel: (id: string, payload: Record<string, any>) =>
+    request<Character>(`/characters/${id}/model`, { method: "PATCH", body: JSON.stringify(payload) }),
+  generateCharacterSheet: (
+    id: string,
+    kind: "turnaround" | "expressions" | "poses",
+    payload: Record<string, any>
+  ) =>
+    request<CharacterSheetJob>(`/characters/${id}/sheet/${kind}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  characterSheet: (id: string, sheetId: string) =>
+    request<CharacterSheetStatus>(`/characters/${id}/sheets/${sheetId}`),
+  characterSheets: (id: string) =>
+    request<Array<Record<string, any>>>(`/characters/${id}/sheets`),
   setCharacterCanonical: (id: string, assetId: string) =>
     request<Character>(`/characters/${id}/canonical`, {
       method: "POST",
@@ -422,6 +445,17 @@ export const api = {
   settings: () => request<SettingsPayload>("/settings"),
   saveSettings: (config: Partial<AppConfig>) =>
     request<SettingsPayload>("/settings", { method: "PUT", body: JSON.stringify(config) }),
+  modelCatalog: () => request<ModelCatalog>("/v1/models/catalog"),
+  modelConfig: () => request<ModelConfig>("/v1/models/config"),
+  saveModelConfig: (models: ModelConfig) =>
+    request<{ models: ModelConfig }>("/v1/models/config", {
+      method: "PUT",
+      body: JSON.stringify({ models }),
+    }),
+  modelRecommendations: () =>
+    request<{ recommendations: ModelCatalog["recommendations"]; note: string }>(
+      "/v1/models/recommendations"
+    ),
 
   aiHealth: () => request<{ status: string; openai: Record<string, any>; model: string | null }>("/v1/ai/health"),
   aiTools: () =>

@@ -6,6 +6,7 @@ from ..config import load_config
 from ..db import query_one
 from ..schemas import GenerateRequest
 from ..services.jobs import get_job, list_jobs, queue_state, runner
+from ..services.model_config_service import configured_checkpoint
 from ..workflows.registry import find_workflow
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -45,6 +46,11 @@ async def generate(payload: GenerateRequest) -> dict:
                 "batch_size": payload.batch_size or generation.get("batch_size", 1),
             }
         )
+        engine = str(entry.get("engine") or "")
+        if engine in ("sdxl", "sd15"):
+            checkpoint = configured_checkpoint(config, engine)
+            if checkpoint:
+                params["checkpoint"] = checkpoint
     else:
         for key in ("width", "height", "steps", "cfg", "sampler", "scheduler", "batch_size", "length", "fps", "input_image", "output_format"):
             value = getattr(payload, key)

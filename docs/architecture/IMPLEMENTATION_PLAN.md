@@ -96,7 +96,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Mocked production task execution.
 - [x] Mocked OpenAI Responses tool loop.
 - [x] Existing API regression checks performed manually.
-- Result: **25 passed**.
+- Result: **35 passed**.
 
 ## Phase 12 — Documentation and deployment
 - [x] Architecture, development, integration and operations docs.
@@ -105,3 +105,20 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] ChatGPT connection instructions.
 - [x] Remaining limitations documented.
 - [x] Git milestone committed (see repository history).
+
+## SDXL image-generation upgrade (post-Phase 12)
+- [x] Existing ComfyUI/model/workflow audit; SD 1.5 compatibility preserved.
+- [x] Model discovery for checkpoints, VAEs, LoRAs, ControlNet and upscalers.
+- [x] Architecture detection from safetensors metadata, filename and size, with confidence/source.
+- [x] Model Studio UI: active model, GPU/VRAM, compatibility, missing dependencies, checkpoint/VAE/LoRA/workflow/preset configuration.
+- [x] Local model-path configuration remains available in Settings; no automatic downloads.
+- [x] SDXL workflow templates: txt2img, img2img, turnaround, expression, pose, background.
+- [x] Tiled VAE, batch size 1, SDXL dimension guard and 6 GB-safe presets.
+- [x] Optional VAE and LoRA injection; model availability validation.
+- [x] Character-specific model overrides stored in character memory; no schema migration.
+- [x] Turnaround/expression/pose sheet orchestration with approved-reference gate.
+- [x] Model approval action; no auto-approval.
+- [x] SD 1.5 live regression passed; SDXL live tests blocked by missing checkpoint.
+- [x] `docs/integration/SDXL_MODEL_GUIDE.md`.
+- [x] **35 passed** automated tests.
+- [ ] SDXL live character/background generation and VRAM measurement: blocked until an SDXL checkpoint is installed and selected.

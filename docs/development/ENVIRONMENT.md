@@ -35,3 +35,7 @@
 ## Database path
 
 `config/config.json` remains the default source. `CARTOON_STUDIO_DB_PATH` and `sqlite:///` URLs are optional overrides.
+
+## Image model configuration
+
+Selected checkpoints, VAE, LoRA, workflows and 6 GB presets are stored under the `models` key in `config/config.json`. Use **Model Studio** (`/models`) to edit them. This is separate from ComfyUI’s own model files; Cartoon Studio never downloads or modifies model weights.

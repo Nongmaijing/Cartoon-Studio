@@ -16,6 +16,7 @@ from .creative import NEGATIVE_DEFAULT, character_prompt
 from .errors import NotFoundError, ServiceError
 from .generation import upload_start_image
 from .media import cover_asset_id, list_media, media_counts
+from .model_config_service import resolve_image_model
 
 CHARACTER_FIELDS = (
     "name",
@@ -45,6 +46,7 @@ def _decorate(row: dict[str, Any]) -> dict[str, Any]:
         row["memory"] = json.loads(row.get("memory_json") or "{}")
     except json.JSONDecodeError:
         row["memory"] = {}
+    row["model"] = row["memory"].get("model") if isinstance(row["memory"], dict) else {}
     return row
 
 
@@ -193,15 +195,37 @@ def get_references(character_id: str) -> dict[str, Any]:
     }
 
 
+def _character_model_overrides(character: dict[str, Any]) -> dict[str, Any]:
+    memory = character.get("memory") or {}
+    model = memory.get("model") if isinstance(memory, dict) else {}
+    if not isinstance(model, dict):
+        model = {}
+    overrides: dict[str, Any] = {}
+    for key in (
+        "architecture",
+        "checkpoint",
+        "vae",
+        "lora_name",
+        "lora_strength",
+        "preset",
+        "reference_strength",
+        "denoise",
+    ):
+        value = model.get(key)
+        if value not in (None, ""):
+            overrides[key] = value
+    return overrides
+
+
 async def generate_sheet(
     character_id: str,
     *,
     kind: str = "reference",
     label: str = "front",
-    width: int = 768,
-    height: int = 1152,
-    steps: int = 28,
-    cfg: float = 6.5,
+    width: int | None = None,
+    height: int | None = None,
+    steps: int | None = None,
+    cfg: float | None = None,
     seed: int | None = None,
     prompt: str | None = None,
     negative_prompt: str | None = None,
@@ -229,11 +253,34 @@ async def generate_sheet(
         object_info = await client.object_info()
         mode = resolve_image_mode(object_info, reference_mode, True)
         if mode == "controlnet-pose":
-            workflow_id = "sd15_controlnet_pose"
             control_net_name = controlnet_model(object_info)
         input_image = await upload_start_image(config, client, reference_asset_id, project_id)
     final_label = label.strip() or ("front" if kind == "reference" else kind)
     composed = character_prompt(character, kind, final_label, prompt)
+    overrides = _character_model_overrides(character)
+    model = resolve_image_model(
+        config,
+        architecture=overrides.get("architecture"),
+        purpose="character",
+        input_image=bool(reference_asset_id),
+        explicit=bool(overrides.get("architecture")),
+    )
+    if mode == "controlnet-pose":
+        if model["architecture"] == "sd15":
+            workflow_id = "sd15_controlnet_pose"
+            control_net_name = controlnet_model(object_info)
+        else:
+            mode = "image-to-image"
+            control_net_name = None
+    if "preset" not in overrides:
+        overrides["preset"] = (
+            "sdxl_portrait"
+            if model["architecture"] == "sdxl" and kind == "pose"
+            else f"{model['architecture']}_character"
+        )
+    effective_denoise = float(
+        overrides.pop("reference_strength", overrides.pop("denoise", denoise))
+    )
     provider = registry.get("image")
     result = await provider.generate_image(
         project_id=project_id,
@@ -246,9 +293,11 @@ async def generate_sheet(
         seed=seed,
         workflow_id=workflow_id,
         input_image=input_image,
-        denoise=denoise if reference_asset_id else None,
+        denoise=effective_denoise if reference_asset_id else None,
         control_strength=control_strength if mode == "controlnet-pose" else None,
         control_net_name=control_net_name,
+        purpose="character",
+        **overrides,
         attach={
             "owner_type": "character",
             "owner_id": character_id,
@@ -263,11 +312,22 @@ async def generate_sheet(
         character_id,
         {"kind": kind, "mode": mode, "job_id": result.get("job_id")},
     )
+    reference_approved = (
+        character.get("approval_status") == "approved" if reference_asset_id else None
+    )
     return {
         **result,
         "character_id": character_id,
         "mode": mode,
         "reference_asset_id": reference_asset_id,
+        "input_image": input_image,
+        "reference_approved": reference_approved,
+        "reference_warning": (
+            "The reference is used because it is the character's canonical image, but the character is not approved."
+            if reference_asset_id and not reference_approved
+            else None
+        ),
+        "model": result.get("model"),
         "prompt": composed,
         "fallback": bool(reference_asset_id) and reference_mode == "pose" and mode != "controlnet-pose",
     }

@@ -86,3 +86,22 @@ episode timeline (segments + audio + settings)
   -> unique MP4 + SRT asset
   -> episode output_url
 ```
+
+## 7. Image model resolution
+
+```
+UI / AI tool / MCP / production task
+  -> submit_image(purpose=character|background|scene|expression|pose)
+  -> model_config_service.resolve_image_model()
+       -> selected architecture (SDXL by default, SD 1.5 fallback)
+       -> checkpoint / VAE / LoRA
+       -> workflow and preset
+  -> jobs._run_job()
+       -> apply checkpoint override
+       -> validate VAE / LoRA availability
+       -> build_prompt()
+       -> apply_vae() / apply_lora() graph injection
+       -> ComfyUI
+```
+
+The Model Studio reads the same configuration. It never downloads files; it only scans model directories and reports readiness. If no SDXL checkpoint is configured, `resolve_image_model` falls back to SD 1.5 and records the fallback reason in the job parameters.

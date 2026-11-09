@@ -82,6 +82,14 @@ export interface Character {
   pose_count: number;
   cover_asset_id: string | null;
   cover_url: string | null;
+  approval_status?: string;
+  memory?: Record<string, any>;
+  model?: Record<string, any>;
+  master_reference?: {
+    asset_id: string | null;
+    url: string | null;
+    approved: boolean;
+  };
 }
 
 export interface Background {
@@ -305,6 +313,68 @@ export interface DashboardData {
   recent_assets: Asset[];
 }
 
+export interface ModelFileEntry {
+  name: string;
+  relative_path: string | null;
+  path: string | null;
+  category: string;
+  size_bytes: number | null;
+  size_gb: number | null;
+  architecture: string;
+  confidence: string;
+  detection_source: string;
+  detection_detail: string;
+  metadata: Record<string, any>;
+  installed_in_comfy: boolean;
+  compatible_engines: string[];
+  modified_at: string | null;
+}
+
+export interface ModelRecommendation {
+  name: string;
+  filename_hints: string[];
+  category: string;
+  source: string;
+  architecture: string;
+  intended_use: string;
+  license: string;
+  license_notes: string;
+  download_size: string;
+  vram: string;
+  compatibility: string;
+  cartoon_suitability: string;
+  reference_conditioning: string;
+  installed: boolean;
+  installed_file: string | null;
+  status: string;
+}
+
+export interface ModelConfig {
+  default_architecture: string;
+  checkpoints: Record<string, string>;
+  vae: Record<string, string>;
+  lora: { name: string; strength: number; architecture: string };
+  workflows: Record<string, string>;
+  presets: Record<string, Record<string, any>>;
+  low_vram: boolean;
+  tiled_vae: boolean;
+  cpu_offload: string;
+  attention: string;
+  batch_size: number;
+  max_pixels: number;
+}
+
+export interface ModelCatalog {
+  config: ModelConfig;
+  active: Record<string, any>;
+  comfyui: Record<string, any>;
+  models: Record<string, ModelFileEntry[]>;
+  missing: Array<{ kind: string; severity: string; message: string; action: string }>;
+  recommendations: ModelRecommendation[];
+  model_dirs: string[];
+  note: string;
+}
+
 export interface SettingsPayload {
   config: AppConfig;
   defaults: AppConfig;
@@ -343,6 +413,7 @@ export interface AppConfig {
     timeout_seconds: number;
     max_concurrent_jobs: number;
   };
+  models: ModelConfig;
   ffmpeg: { path: string };
   tts: {
     default_engine: string;
@@ -653,4 +724,33 @@ export interface ChatGPTTunnelStatus {
   cloudflared_available: boolean;
   warning: string;
   message: string;
+}
+
+export interface CharacterSheetJob {
+  sheet_id: string;
+  character_id: string;
+  kind: string;
+  reference_asset_id: string | null;
+  reference_approved: boolean | null;
+  seed: number;
+  jobs: Job[];
+  items: Array<{ label: string; job_id: string | null; status: string | null }>;
+  model: Record<string, any> | null;
+}
+
+export interface CharacterSheetStatus {
+  sheet_id: string;
+  character_id: string;
+  kind: string | null;
+  jobs: Job[];
+  items: Array<{
+    label: string | null;
+    job_id: string | null;
+    status: string | null;
+    progress: number | null;
+    error: string | null;
+    outputs: Array<Record<string, any>>;
+  }>;
+  complete: boolean;
+  failed: boolean;
 }

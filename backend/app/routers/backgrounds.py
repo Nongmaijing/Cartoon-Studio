@@ -129,17 +129,24 @@ async def generate_background(background_id: str, payload: BackgroundGenerateReq
         raise HTTPException(status_code=400, detail="Background is not attached to a project.")
 
     prompt = background_prompt(background, payload.prompt)
+    use_preset = bool(payload.use_preset and payload.width is None and payload.height is None)
     try:
         job = await submit_image(
             project_id=background["project_id"],
             prompt=prompt,
             negative_prompt=payload.negative_prompt or BACKGROUND_NEGATIVE,
-            width=payload.width or background["width"],
-            height=payload.height or background["height"],
+            width=None if use_preset else (payload.width or background["width"]),
+            height=None if use_preset else (payload.height or background["height"]),
             steps=payload.steps,
             cfg=payload.cfg,
             seed=payload.seed,
             workflow_id=payload.workflow_id,
+            architecture=payload.architecture,
+            checkpoint=payload.checkpoint,
+            vae=payload.vae,
+            lora_name=payload.lora_name,
+            lora_strength=payload.lora_strength,
+            purpose="background",
             attach={
                 "owner_type": "background",
                 "owner_id": background_id,
@@ -149,7 +156,7 @@ async def generate_background(background_id: str, payload: BackgroundGenerateReq
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"job": job, "background_id": background_id, "prompt": prompt}
+    return {"job": job, "background_id": background_id, "prompt": prompt, "model": job.get("model")}
 
 
 @router.get("/{background_id}/jobs")

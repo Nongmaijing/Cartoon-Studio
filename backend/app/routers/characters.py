@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
@@ -12,10 +13,13 @@ from ..schemas import (
     CanonicalAsset,
     CharacterCreate,
     CharacterGenerateRequest,
+    CharacterModelSettings,
+    CharacterSheetRequest,
     CharacterUpdate,
     MediaAttach,
     VoiceAssignment,
 )
+from ..services import character_sheet_service
 from ..services.conditioning import controlnet_model, resolve_image_mode
 from ..services.creative import NEGATIVE_DEFAULT, character_prompt
 from ..services.generation import submit_image, upload_start_image
@@ -41,6 +45,16 @@ def _decorate(row: dict[str, Any]) -> dict[str, Any]:
     row["cover_url"] = f"/api/assets/{cover}/file" if cover else None
     canonical = row.get("canonical_asset_id")
     row["canonical_url"] = f"/api/assets/{canonical}/file" if canonical else None
+    try:
+        row["memory"] = json.loads(row.get("memory_json") or "{}")
+    except json.JSONDecodeError:
+        row["memory"] = {}
+    row["model"] = row["memory"].get("model") if isinstance(row["memory"], dict) else {}
+    row["master_reference"] = {
+        "asset_id": canonical,
+        "url": f"/api/assets/{canonical}/file" if canonical else None,
+        "approved": row.get("approval_status") == "approved",
+    }
     return row
 
 
@@ -179,6 +193,40 @@ async def attach_character_media(character_id: str, payload: MediaAttach) -> dic
     return {**link, "character_id": character_id}
 
 
+@router.post("/{character_id}/approve")
+async def approve_character(character_id: str) -> dict[str, Any]:
+    from ..services import character_service
+    from ..services.errors import ServiceError
+
+    try:
+        return character_service.approve_character(character_id, actor="user")
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.get("/{character_id}/model")
+async def get_character_model(character_id: str) -> dict[str, Any]:
+    character = _get(character_id)
+    return {"character_id": character_id, "model": character.get("model") or {}}
+
+
+@router.patch("/{character_id}/model")
+async def update_character_model(character_id: str, payload: CharacterModelSettings) -> dict[str, Any]:
+    character = _get(character_id)
+    memory = character.get("memory") or {}
+    if not isinstance(memory, dict):
+        memory = {}
+    model = memory.get("model") if isinstance(memory.get("model"), dict) else {}
+    for key, value in payload.model_dump(exclude_none=True).items():
+        model[key] = value
+    memory["model"] = model
+    execute(
+        "UPDATE characters SET memory_json = ?, updated_at = ? WHERE id = ?",
+        (json.dumps(memory), now(), character_id),
+    )
+    return _get(character_id)
+
+
 @router.post("/{character_id}/canonical")
 async def set_canonical_asset(character_id: str, payload: CanonicalAsset) -> dict[str, Any]:
     character = _get(character_id)
@@ -208,65 +256,76 @@ async def clear_canonical_asset(character_id: str) -> dict[str, Any]:
 
 @router.post("/{character_id}/generate", status_code=202)
 async def generate_character_media(character_id: str, payload: CharacterGenerateRequest) -> dict[str, Any]:
-    character = _get(character_id)
-    if not character["project_id"]:
-        raise HTTPException(status_code=400, detail="Character is not attached to a project.")
-
-    label = payload.label.strip()
-    if payload.kind == "reference" and not label:
-        label = "front"
-
-    prompt = character_prompt(character, payload.kind, label, payload.prompt)
-    config = load_config()
-    client = _client(config)
-    reference_asset_id = payload.reference_asset_id or character.get("canonical_asset_id")
-    workflow_id = payload.workflow_id
-    input_image = None
-    control_net_name = None
-    mode = "text-to-image"
+    from ..services import character_service
+    from ..services.errors import ServiceError
 
     try:
-        if reference_asset_id:
-            object_info = await client.object_info()
-            mode = resolve_image_mode(object_info, payload.reference_mode, True)
-            if mode == "controlnet-pose":
-                workflow_id = workflow_id or "sd15_controlnet_pose"
-                control_net_name = controlnet_model(object_info)
-            input_image = await upload_start_image(
-                config, client, reference_asset_id, character["project_id"]
-            )
-        job = await submit_image(
-            project_id=character["project_id"],
-            prompt=prompt,
-            negative_prompt=payload.negative_prompt or NEGATIVE_DEFAULT,
+        return await character_service.generate_sheet(
+            character_id,
+            kind=payload.kind,
+            label=payload.label,
             width=payload.width,
             height=payload.height,
             steps=payload.steps,
             cfg=payload.cfg,
             seed=payload.seed,
-            workflow_id=workflow_id,
-            input_image=input_image,
-            denoise=payload.denoise if reference_asset_id else None,
-            control_strength=payload.control_strength if mode == "controlnet-pose" else None,
-            control_net_name=control_net_name,
-            attach={
-                "owner_type": "character",
-                "owner_id": character_id,
-                "role": payload.kind,
-                "label": label,
-            },
+            prompt=payload.prompt,
+            negative_prompt=payload.negative_prompt,
+            reference_asset_id=payload.reference_asset_id,
+            reference_mode=payload.reference_mode,
+            denoise=payload.denoise,
+            control_strength=payload.control_strength,
+            actor="user",
         )
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except (ValueError, ComfyError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {
-        "job": job,
-        "character_id": character_id,
-        "prompt": prompt,
-        "mode": mode,
-        "input_image": input_image,
-        "reference_asset_id": reference_asset_id,
-        "fallback": bool(reference_asset_id) and payload.reference_mode == "pose" and mode != "controlnet-pose",
-    }
+
+
+@router.post("/{character_id}/sheet/{kind}", status_code=202)
+async def generate_character_sheet(
+    character_id: str,
+    kind: str,
+    payload: CharacterSheetRequest,
+) -> dict[str, Any]:
+    from ..services.errors import ServiceError
+
+    try:
+        return await character_sheet_service.generate_sheet(
+            character_id,
+            kind,
+            reference_asset_id=payload.reference_asset_id,
+            allow_unapproved_reference=payload.allow_unapproved_reference,
+            seed=payload.seed,
+            steps=payload.steps,
+            cfg=payload.cfg,
+            denoise=payload.denoise,
+            width=payload.width,
+            height=payload.height,
+            architecture=payload.architecture,
+            checkpoint=payload.checkpoint,
+            vae=payload.vae,
+            lora_name=payload.lora_name,
+            lora_strength=payload.lora_strength,
+            actor="user",
+        )
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/{character_id}/sheets/{sheet_id}")
+async def get_character_sheet(character_id: str, sheet_id: str) -> dict[str, Any]:
+    _get(character_id)
+    return character_sheet_service.get_sheet(character_id, sheet_id)
+
+
+@router.get("/{character_id}/sheets")
+async def list_character_sheets(character_id: str, limit: int = 20) -> list[dict[str, Any]]:
+    _get(character_id)
+    return character_sheet_service.list_sheets(character_id, limit)
 
 
 @router.get("/{character_id}/jobs")

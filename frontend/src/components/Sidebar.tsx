@@ -17,6 +17,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/scenes", label: "Scenes", icon: "scenes", phase: "3" },
   { to: "/animation", label: "Animation", icon: "animation", phase: "3" },
   { to: "/director", label: "AI Director", icon: "director", phase: "AI" },
+  { to: "/models", label: "Model Studio", icon: "models", phase: "IMG" },
   { to: "/voice", label: "Voice & Dialogue", icon: "voice", phase: "5" },
   { to: "/episode", label: "Episode Editor", icon: "episode", phase: "6" },
   { to: "/workflows", label: "Workflows", icon: "workflows" },

@@ -101,3 +101,43 @@ cd D:\bro\CartoonStudio\backend
 - 8188 ComfyUI
 
 Run `scripts\stop_all.ps1` to stop Cartoon Studio ports, then restart.
+
+## SDXL model not detected
+
+- Confirm the checkpoint is inside a configured `checkpoints` directory:
+  `D:\bro\ComfyUI\Models\checkpoints`, `ComfyUI-Shared\models\checkpoints`, or the install’s `models\checkpoints`.
+- Restart/refresh ComfyUI, then click **Model Studio → Refresh catalog**.
+- Check `/api/comfy/models`; if the file is not in `checkpoints`, ComfyUI cannot load it.
+- The catalog reports architecture from safetensors metadata, filename, or size. “Unknown” means verify the model card manually.
+
+## SDXL is reported as blocked
+
+- The `missing` list in Model Studio shows the reason. The most common cause is no SDXL checkpoint selected.
+- Install a checkpoint manually, select it in Model Studio, save, then refresh.
+- Cartoon Studio intentionally falls back to SD 1.5 rather than pretending SDXL works.
+
+## SDXL CUDA out of memory
+
+- Use 1024×1024, 1216×832, or 832×1216. The dimension guard rejects larger requests.
+- Keep batch size 1 and tiled VAE enabled.
+- Restart ComfyUI with `--lowvram` (or `--normalvram`) on the 6 GB GPU.
+- Close other GPU applications.
+- SDXL ControlNet/IPAdapter add extra VRAM; install only if needed.
+
+## SDXL workflow is valid but not runnable
+
+- Check `/api/workflows` → `model_status` for the missing checkpoint or VAE.
+- Ensure the selected checkpoint is in the live ComfyUI `CheckpointLoaderSimple` options.
+- The workflow templates use a placeholder `sd_xl_base_1.0.safetensors`; the runtime replaces it with the selected checkpoint.
+
+## Character sheet is blocked
+
+- Expression and pose sheets require an approved character with a master reference.
+- Approve the character in Character Studio, then retry.
+- Turnaround can run without a reference and will use text-to-image for all four views.
+
+## LoRA or VAE selection fails
+
+- The file must be in `models\loras` or `models\vae` and visible in ComfyUI.
+- Refresh the catalog after installing it.
+- The LoRA architecture must match the active model (SDXL LoRA for SDXL, SD 1.5 LoRA for SD 1.5).

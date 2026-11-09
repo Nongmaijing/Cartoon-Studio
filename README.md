@@ -41,7 +41,11 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | AI Director page with chat, SSE progress, production control, approvals | Working — live OpenAI calls require a key/model |
 | MCP server (official SDK, streamable HTTP, bearer auth, 56 tools) | Working and tested |
 | Production memory, approvals, character/asset versions, audit logs | Working |
-| Automated tests | **25 passed** |
+| Model Studio: checkpoint/VAE/LoRA discovery, architecture detection, compatibility and missing-dependency reporting | Working |
+| SDXL character/background workflow templates with tiled VAE and 6 GB presets | Templates valid; live SDXL blocked until an SDXL checkpoint is installed |
+| Character turnaround / expression / pose sheet orchestration | Implemented; mocked tests pass; live SDXL blocked |
+| SD 1.5 regression after the model-config changes | Working — live 512×512 test job completed |
+| Automated tests | **35 passed** |
 
 Verified on this machine: SD 1.5 jobs completed in seconds, saved under `outputs/<project>/<job>/`, and served at `/api/assets/{id}/file`. A scene with a cast and background generated a 512×288 keyframe, then a 320×192 / 5-frame Wan image-to-video clip using that keyframe as frame one (uploaded to ComfyUI's input root). Both outputs were copied into the project, attached to the scene as `keyframe` / `video`, and the clip was confirmed with ffprobe (`h264`, 320×192, 5 frames). In Phase 4 a character canonical image drove an SD 1.5 img2img job at denoise 0.55 (completed, attached as a reference), pose mode correctly reported an image-to-image fallback because no ControlNet model is installed, and a scene keyframe used a cast reference through img2img. AnimateDiff and ControlNet are reported as not runnable with their missing nodes/models named. In Phase 5 Windows SAPI was detected with Microsoft David and Zira, a character voice was saved, a scene line was synthesized to a 2.129 s WAV at 22.05 kHz, a narrator line and imported script lines were generated, and a duplicated project retained dialogue lines, voice settings and remapped audio files. In Phase 6 a two-segment 10-second episode (image + video, 3 dialogue tracks, fade transitions, soft subtitles) exported to 1280×720 H.264/AAC MP4 in **1.53 s** of FFmpeg time (**2.35 s** end-to-end including polling), producing a **1.68 MB** file with H.264 video, AAC stereo audio and `mov_text` subtitles; ffprobe confirmed 10.000 s duration. A duplicated project retained the episode timeline, remapped scene/audio assets and a playable copied MP4.
 
@@ -165,7 +169,7 @@ cd D:\bro\CartoonStudio\backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Current result: **25 passed**.
+Current result: **35 passed**.
 
 ---
 
@@ -263,6 +267,51 @@ Measured on this machine (RTX 4050 Laptop, 6 GB VRAM):
 | Upscale 768×1152 → 3072×4608 | 4x-UltraSharp | **6.2 s** |
 
 The 768×1152 → 3072×4608 upscale is a 14.2 MP result and completed successfully on the 6 GB RTX 4050. Higher resolutions and step counts increase time roughly linearly; 768×1152 is the recommended character production preset on this GPU.
+
+### SDXL Model Studio (image-generation upgrade)
+
+A new **Model Studio** page (`/models`) extends the existing model configuration without replacing the SD 1.5 pipeline.
+
+- Scans the configured ComfyUI model directories for checkpoints, VAEs, LoRAs, ControlNet and upscalers.
+- Reads safetensors metadata where available, then falls back to filename/size heuristics. Architecture detection always reports its confidence and source.
+- Shows file size, ComfyUI installation status, compatible engines, detection details and local path.
+- Reports missing dependencies and never downloads a model.
+- Lets the operator choose the default architecture, SDXL/SD 1.5 checkpoints, VAE, LoRA and strength, workflow per task, and 6 GB-safe resolution/sampling presets.
+- Displays the active model, architecture, workflow, GPU name, VRAM usage, ComfyUI low-VRAM/attention flags, queue status and recent image outputs.
+- Character Studio adds optional per-character model overrides (architecture, checkpoint, VAE, LoRA, reference strength) and turnaround/expression/pose sheet buttons.
+
+Current machine audit:
+
+- Installed checkpoints: **DreamShaper 8** and **SD 1.5 base** only. No SDXL checkpoint.
+- VAEs: Wan 2.2 VAE and ComfyUI `pixel_space`; no external SDXL VAE.
+- LoRAs: none. ControlNet models: none. Custom nodes: none.
+- GPU: RTX 4050 Laptop, 6 GB VRAM; ComfyUI is not currently launched with an explicit low-VRAM flag.
+- **SDXL generation tests are blocked until an SDXL checkpoint is installed and selected.** Cartoon Studio reports this rather than pretending SDXL works.
+
+SDXL workflow templates added:
+
+| Workflow | Purpose |
+|---|---|
+| `sdxl_txt2img` | General SDXL text-to-image |
+| `sdxl_img2img` | SDXL reference conditioning / identity |
+| `sdxl_character_turnaround` | Character reference/turnaround views |
+| `sdxl_character_expression` | Expression sheet from an approved reference |
+| `sdxl_character_pose` | Pose sheet from an approved reference |
+| `sdxl_background` | 16:9 Little Wonder Village backgrounds |
+
+All SDXL templates use tiled VAE decoding and batch size 1. Safe presets are 1024×1024, 1216×832 and 832×1216, with 25–30 steps and CFG 5–7. The SDXL dimension guard rejects requests above the configured 6 GB pixel budget with a clear error.
+
+Character consistency:
+
+- The approved canonical image remains the master reference.
+- Expression and pose sheets require an approved character; an unapproved reference is not used silently.
+- The same seed is used across each sheet, and each image is generated through the existing single-worker queue.
+- Optional character-specific LoRA and reference strength are stored in character memory; no database migration is required.
+- Generated characters are never auto-approved.
+
+SD 1.5 remains selectable and is the automatic fallback until an SDXL checkpoint is installed and configured. A live SD 1.5 regression job completed after the model-config changes (512×512, asset `d5c70209dd33`).
+
+See `docs/integration/SDXL_MODEL_GUIDE.md` for manual model installation, licensing, VRAM expectations and limitations.
 
 ### Production voice model
 
@@ -668,7 +717,7 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 | 8 | Automated production and deterministic QC | Complete; AI-assisted QC disabled by default |
 | 9 | AI Director frontend | Complete, production build passes |
 | 10 | Security, token auth, redaction, audit, rate limits | Complete; full OAuth server not implemented |
-| 11 | Automated tests | **25 passed** |
+| 11 | Automated tests | **35 passed** |
 | 12 | Documentation, `.env.example`, startup scripts | Complete |
 
 **All six production phases and the AI integration phases are implemented.** The production pipeline is fully usable without OpenAI. The AI layers are real backend integrations, not mocks, in production code; the automated tests mock external services by design.

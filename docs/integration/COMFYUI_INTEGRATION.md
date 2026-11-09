@@ -16,6 +16,12 @@
 | `sd15_txt2img` | image | DreamShaper 8 |
 | `sd15_img2img` | image | DreamShaper 8 |
 | `sd15_controlnet_pose` | image | DreamShaper 8 + ControlNet OpenPose (when installed) |
+| `sdxl_txt2img` | image | Configured SDXL checkpoint |
+| `sdxl_img2img` | image | Configured SDXL checkpoint (reference conditioning) |
+| `sdxl_character_turnaround` | image | Configured SDXL checkpoint |
+| `sdxl_character_expression` | image | Configured SDXL checkpoint + reference |
+| `sdxl_character_pose` | image | Configured SDXL checkpoint + reference |
+| `sdxl_background` | image | Configured SDXL checkpoint (16:9) |
 | `upscale_4x` | image | 4x-UltraSharp |
 | `wan22_t2v` | video | Wan 2.2 TI2V-5B |
 | `wan22_i2v` | video | Wan 2.2 TI2V-5B |
@@ -30,6 +36,8 @@
 - model files referenced by the mapping.
 
 A workflow is `runnable` only when all checks pass. The provider registry reports ComfyUI live connection separately.
+
+Workflow readiness applies the checkpoint selected in **Model Studio** to the workflow’s `checkpoint` role before checking model availability. SDXL templates use a placeholder `sd_xl_base_1.0.safetensors`; if no SDXL checkpoint is configured, the workflow is structurally valid but not runnable. This is intentional and is reported in the UI.
 
 ## Model locations
 

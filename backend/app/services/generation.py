@@ -9,6 +9,7 @@ from ..workflows.registry import find_workflow, list_workflows, load_workflow
 from .assets import asset_file
 from .creative import VIDEO_NEGATIVE
 from .jobs import runner
+from .model_config_service import apply_model_to_params, resolve_image_model, validate_dimensions
 
 VIDEO_DEFAULTS: dict[str, Any] = {
     "width": 832,
@@ -130,34 +131,83 @@ async def submit_image(
     denoise: float | None = None,
     control_strength: float | None = None,
     control_net_name: str | None = None,
+    architecture: str | None = None,
+    purpose: str = "scene",
+    preset: str | None = None,
+    checkpoint: str | None = None,
+    vae: str | None = None,
+    lora_name: str | None = None,
+    lora_strength: float | None = None,
+    extra_params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     config = load_config()
-    entry = image_workflow(config, workflow_id, require_input_image=bool(input_image))
+    model = resolve_image_model(
+        config,
+        architecture=architecture,
+        purpose=purpose,
+        input_image=bool(input_image),
+        explicit=bool(architecture),
+        preset=preset,
+    )
+    selected_workflow = workflow_id or model["workflow_id"]
+    entry = image_workflow(config, selected_workflow, require_input_image=bool(input_image))
     generation = config["generation"]
     params: dict[str, Any] = {
         "positive_prompt": prompt,
         "negative_prompt": negative_prompt or generation.get("negative_prompt"),
-        "width": width or generation.get("width", 512),
-        "height": height or generation.get("height", 512),
-        "steps": steps or generation.get("steps", 20),
-        "cfg": cfg if cfg is not None else generation.get("cfg", 7.0),
-        "sampler": generation.get("sampler", "euler"),
-        "scheduler": generation.get("scheduler", "normal"),
-        "batch_size": 1,
         "seed": seed if seed is not None else -1,
         "scene_id": scene_id,
-        "input_image": input_image,
         "denoise": denoise,
         "control_strength": control_strength,
         "control_net_name": control_net_name,
         "attach": attach,
     }
-    return await runner.submit(
+    if width is not None:
+        params["width"] = width
+    if height is not None:
+        params["height"] = height
+    if steps is not None:
+        params["steps"] = steps
+    if cfg is not None:
+        params["cfg"] = cfg
+    if input_image:
+        params["input_image"] = input_image
+    if checkpoint:
+        model["checkpoint"] = checkpoint
+    if vae is not None:
+        model["vae"] = vae
+    if lora_name is not None:
+        model["lora_name"] = lora_name
+    if lora_strength is not None:
+        model["lora_strength"] = lora_strength
+    apply_model_to_params(params, model)
+    params.setdefault("width", generation.get("width", 512))
+    params.setdefault("height", generation.get("height", 512))
+    params.setdefault("steps", generation.get("steps", 20))
+    params.setdefault("cfg", generation.get("cfg", 7.0))
+    params.setdefault("sampler", generation.get("sampler", "euler"))
+    params.setdefault("scheduler", generation.get("scheduler", "normal"))
+    params.setdefault("batch_size", 1)
+    if extra_params:
+        params.update(extra_params)
+    validate_dimensions(model, int(params["width"]), int(params["height"]))
+    job = await runner.submit(
         project_id=project_id,
         workflow_id=entry["id"],
         workflow_name=entry["name"],
         params=params,
     )
+    job["model"] = {
+        "architecture": model["architecture"],
+        "checkpoint": model["checkpoint"],
+        "vae": model.get("vae") or None,
+        "lora_name": model.get("lora_name") or None,
+        "workflow_id": entry["id"],
+        "fallback": model.get("fallback_reason"),
+        "low_vram": model.get("low_vram"),
+        "tiled_vae": model.get("tiled_vae"),
+    }
+    return job
 
 
 async def submit_video(

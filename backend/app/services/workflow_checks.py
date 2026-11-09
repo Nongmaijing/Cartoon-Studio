@@ -5,6 +5,7 @@ from typing import Any
 from ..workflows.adapter import validate_workflow
 from ..workflows.registry import load_workflow
 from .engines import combo_options
+from .model_config_service import configured_checkpoint
 
 
 def model_status(mapping: dict[str, Any], api: dict[str, Any], object_info: dict[str, Any]) -> list[dict[str, Any]]:
@@ -57,6 +58,14 @@ def workflow_readiness(
     loaded = load_workflow(config, entry["id"])
     api = loaded["api"]
     mapping = loaded["mapping"]
+    engine = str(mapping.get("engine") or "")
+    if engine in ("sdxl", "sd15"):
+        checkpoint = configured_checkpoint(config, engine)
+        checkpoint_role = (mapping.get("roles") or {}).get("checkpoint")
+        if checkpoint and checkpoint_role:
+            node = api.get(str(checkpoint_role.get("node")))
+            if node and checkpoint_role.get("input") in (node.get("inputs") or {}):
+                node["inputs"][checkpoint_role["input"]] = checkpoint
     checks = validate_workflow(api, mapping, object_info)
     models = model_status(mapping, api, object_info)
     missing_nodes = missing_node_classes(api, object_info)

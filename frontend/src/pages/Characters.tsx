@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useProject } from "../ProjectContext";
-import type { Character, Job, MediaItem } from "../types";
+import type { Character, CharacterSheetStatus, Job, MediaItem } from "../types";
 import { Alert, EmptyState, PageHeader, ProgressBar, StatusBadge } from "../components/Ui";
 
 type Kind = "reference" | "expression" | "pose";
@@ -73,6 +73,11 @@ export default function Characters() {
   const [seed, setSeed] = useState(-1);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [lastPrompt, setLastPrompt] = useState("");
+  const [sheetBusy, setSheetBusy] = useState(false);
+  const [sheetStatus, setSheetStatus] = useState<CharacterSheetStatus | null>(null);
+  const [sheetId, setSheetId] = useState("");
+  const [charModel, setCharModel] = useState<Record<string, any>>({});
+  const [savingCharModel, setSavingCharModel] = useState(false);
 
   // Attach existing asset
   const [attachId, setAttachId] = useState("");
@@ -90,6 +95,8 @@ export default function Characters() {
     () => characters.find((character) => character.id === selectedCharId) || null,
     [characters, selectedCharId]
   );
+  const sheetReference = referenceAssetId || selected?.canonical_asset_id || "";
+  const characterApproved = selected?.approval_status === "approved";
 
   const refreshCharacters = useCallback(async () => {
     if (!selectedId) {
@@ -129,6 +136,8 @@ export default function Characters() {
     loadMedia(selectedCharId);
     setActiveJob(null);
     setLastPrompt("");
+    setSheetId("");
+    setSheetStatus(null);
     if (!selectedCharId) {
       setProfile({ ...EMPTY_PROFILE });
       return;
@@ -146,6 +155,7 @@ export default function Characters() {
     if (!selected) {
       setProfile({ ...EMPTY_PROFILE });
       setReferenceAssetId("");
+      setCharModel({});
       return;
     }
     setProfile({
@@ -157,6 +167,10 @@ export default function Characters() {
     });
     setReferenceAssetId(selected.canonical_asset_id || "");
     setReferenceMode("identity");
+    api
+      .characterModel(selected.id)
+      .then((result) => setCharModel(result.model || {}))
+      .catch(() => setCharModel({}));
   }, [selected?.id, selected?.updated_at]);
 
   useEffect(() => {
@@ -184,6 +198,32 @@ export default function Characters() {
     }, 2000);
     return () => window.clearInterval(timer);
   }, [activeJob?.id, activeJob?.status, refreshCharacters, loadMedia, selectedCharId]);
+
+  useEffect(() => {
+    if (!sheetId || !selectedCharId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const status = await api.characterSheet(selectedCharId, sheetId);
+        if (cancelled) return;
+        setSheetStatus(status);
+        if (status.complete || status.failed) {
+          await refreshCharacters();
+          await loadMedia(selectedCharId);
+          if (status.complete) setNotice("Character sheet completed.");
+          if (status.failed) setError("One or more sheet jobs failed. Check the job errors below.");
+        }
+      } catch (exc) {
+        if (!cancelled) setError(exc instanceof Error ? exc.message : String(exc));
+      }
+    };
+    poll();
+    const timer = window.setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [sheetId, selectedCharId, refreshCharacters, loadMedia]);
 
   const chooseKind = (next: Kind) => {
     setKind(next);
@@ -267,6 +307,74 @@ export default function Characters() {
       }
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
+    }
+  };
+
+  const generateSheet = async (sheetKind: "turnaround" | "expressions" | "poses") => {
+    if (!selected) return;
+    setError("");
+    setNotice("");
+    setSheetBusy(true);
+    try {
+      const result = await api.generateCharacterSheet(selected.id, sheetKind, {
+        seed,
+        steps,
+        cfg: 6.5,
+        denoise,
+        reference_asset_id: referenceAssetId || selected.canonical_asset_id || undefined,
+        allow_unapproved_reference: false,
+      });
+      setSheetId(result.sheet_id);
+      setSheetStatus({
+        sheet_id: result.sheet_id,
+        character_id: result.character_id,
+        kind: result.kind,
+        jobs: result.jobs,
+        items: result.items.map((item) => ({
+          label: item.label,
+          job_id: item.job_id,
+          status: item.status,
+          progress: 0,
+          error: null,
+          outputs: [],
+        })),
+        complete: false,
+        failed: false,
+      });
+      setNotice(
+        `${sheetKind} sheet queued: ${result.jobs.length} images. The existing single-job queue runs them one at a time.`
+      );
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setSheetBusy(false);
+    }
+  };
+
+  const approveSelected = async () => {
+    if (!selected) return;
+    setError("");
+    try {
+      await api.approveCharacter(selected.id);
+      await refreshCharacters();
+      setNotice("Character approved. A version snapshot was saved.");
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    }
+  };
+
+  const saveCharacterModel = async () => {
+    if (!selected) return;
+    setSavingCharModel(true);
+    setError("");
+    try {
+      await api.updateCharacterModel(selected.id, charModel);
+      await refreshCharacters();
+      setNotice("Character model overrides saved.");
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setSavingCharModel(false);
     }
   };
 
@@ -563,12 +671,86 @@ export default function Characters() {
                         Clear canonical
                       </button>
                     )}
+                    <button className="btn sm" onClick={approveSelected} disabled={characterApproved}>
+                      {characterApproved ? "Approved" : "Approve character"}
+                    </button>
                   </div>
                   <div className="tiny muted">
                     The canonical image becomes the default identity reference for consistency generation.
                   </div>
                 </div>
               </div>
+
+              <details className="ai-tool-details" style={{ marginBottom: 12 }}>
+                <summary>Character model overrides (optional)</summary>
+                <div className="form-grid" style={{ marginTop: 10 }}>
+                  <div className="field">
+                    <label>Architecture</label>
+                    <select
+                      value={charModel.architecture || ""}
+                      onChange={(event) => setCharModel({ ...charModel, architecture: event.target.value })}
+                    >
+                      <option value="">Use global Model Studio</option>
+                      <option value="sdxl">SDXL</option>
+                      <option value="sd15">SD 1.5</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Checkpoint filename</label>
+                    <input
+                      value={charModel.checkpoint || ""}
+                      placeholder="exact ComfyUI filename, blank = global"
+                      onChange={(event) => setCharModel({ ...charModel, checkpoint: event.target.value })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>VAE filename</label>
+                    <input
+                      value={charModel.vae || ""}
+                      placeholder="blank = checkpoint VAE"
+                      onChange={(event) => setCharModel({ ...charModel, vae: event.target.value })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Character LoRA filename</label>
+                    <input
+                      value={charModel.lora_name || ""}
+                      placeholder="blank = no character LoRA"
+                      onChange={(event) => setCharModel({ ...charModel, lora_name: event.target.value })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>LoRA strength</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="-2"
+                      max="2"
+                      value={charModel.lora_strength ?? 0.8}
+                      onChange={(event) => setCharModel({ ...charModel, lora_strength: Number(event.target.value) })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Reference strength / denoise</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="0"
+                      max="1"
+                      value={charModel.reference_strength ?? charModel.denoise ?? 0.55}
+                      onChange={(event) =>
+                        setCharModel({ ...charModel, reference_strength: Number(event.target.value), denoise: Number(event.target.value) })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button className="btn sm" onClick={saveCharacterModel} disabled={savingCharModel}>
+                    {savingCharModel ? "Saving…" : "Save character model settings"}
+                  </button>
+                  <span className="tiny muted">These override Model Studio for this character only.</span>
+                </div>
+              </details>
 
               <div className="form-grid">
                 <div className="field">
@@ -687,6 +869,68 @@ export default function Characters() {
                   {isActive(activeJob) ? "Generating…" : "Generate image"}
                 </button>
               </div>
+
+              <div className="section-title" style={{ marginTop: 14 }}>Sheet generation</div>
+              {!characterApproved && (
+                <div style={{ marginBottom: 8 }}>
+                  <Alert kind="warn">
+                    Approve the character before generating expression or pose sheets from the master reference.
+                    Turnaround can still bootstrap from text.
+                  </Alert>
+                </div>
+              )}
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                <button className="btn" onClick={() => generateSheet("turnaround")} disabled={sheetBusy || isActive(activeJob)}>
+                  Turnaround · 4 views
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => generateSheet("expressions")}
+                  disabled={sheetBusy || isActive(activeJob) || !sheetReference || !characterApproved}
+                  title={!sheetReference ? "Set a canonical reference first" : !characterApproved ? "Approve the character first" : ""}
+                >
+                  Expressions · 8
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => generateSheet("poses")}
+                  disabled={sheetBusy || isActive(activeJob) || !sheetReference || !characterApproved}
+                  title={!sheetReference ? "Set a canonical reference first" : !characterApproved ? "Approve the character first" : ""}
+                >
+                  Poses · 8
+                </button>
+              </div>
+              <div className="tiny muted" style={{ marginTop: 6 }}>
+                Queues one job per view/expression/pose. The existing single-worker queue runs them in order.
+                Expression and pose sheets require an approved master reference.
+              </div>
+
+              {sheetStatus && (
+                <div className="stack" style={{ marginTop: 12 }}>
+                  {sheetStatus.items.map((item) => (
+                    <div className="ai-task" key={item.job_id || item.label}>
+                      <div className="row between">
+                        <strong>{item.label}</strong>
+                        <span className={`chip ${item.status === "completed" ? "exp" : item.status === "failed" ? "pose" : ""}`}>
+                          {item.status || "queued"}
+                        </span>
+                      </div>
+                      {item.error && <div className="tiny" style={{ color: "var(--danger)" }}>{item.error}</div>}
+                      {item.outputs && item.outputs.length > 0 && (
+                        <div className="media-grid" style={{ marginTop: 6 }}>
+                          {item.outputs.map((output) => (
+                            <div className="media-card" key={String(output.asset_id)}>
+                              <a href={String(output.url)} target="_blank" rel="noreferrer">
+                                <img src={String(output.url)} alt={String(output.filename)} loading="lazy" />
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {lastPrompt && (
                 <>

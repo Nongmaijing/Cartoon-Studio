@@ -10,6 +10,7 @@ export type IconName =
   | "voice"
   | "episode"
   | "director"
+  | "models"
   | "workflows"
   | "settings"
   | "plus"
@@ -77,6 +78,15 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M4 8h16v11H4z" />
       <path d="M4 8l3-4 3 4 3-4 3 4 3-4" />
       <path d="M8 13h8M8 16h5" />
+    </>
+  ),
+  models: (
+    <>
+      <rect x="3" y="4" width="18" height="5" rx="1.5" />
+      <rect x="3" y="11" width="18" height="5" rx="1.5" />
+      <rect x="3" y="18" width="18" height="3" rx="1.5" />
+      <circle cx="6" cy="6.5" r="0.8" />
+      <circle cx="6" cy="13.5" r="0.8" />
     </>
   ),
   workflows: (

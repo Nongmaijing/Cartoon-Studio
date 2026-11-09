@@ -29,6 +29,7 @@ from .routers import (
     generate,
     health,
     mcp_support,
+    models,
     production,
     projects,
     providers,
@@ -113,6 +114,7 @@ app.include_router(ai_director.router)
 app.include_router(production.router)
 app.include_router(providers.router)
 app.include_router(mcp_support.router)
+app.include_router(models.router)
 app.include_router(health.router)
 app.include_router(workflows.router)
 app.include_router(generate.router)

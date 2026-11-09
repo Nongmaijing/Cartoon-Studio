@@ -11,6 +11,7 @@ import Backgrounds from "./pages/Backgrounds";
 import Scenes from "./pages/Scenes";
 import Animation from "./pages/Animation";
 import Director from "./pages/Director";
+import Models from "./pages/Models";
 import Voice from "./pages/Voice";
 import Episode from "./pages/Episode";
 
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/scenes" element={<Scenes />} />
           <Route path="/animation" element={<Animation />} />
           <Route path="/director" element={<Director />} />
+          <Route path="/models" element={<Models />} />
           <Route path="/voice" element={<Voice />} />
           <Route path="/episode" element={<Episode />} />
           <Route path="/workflows" element={<Workflows />} />

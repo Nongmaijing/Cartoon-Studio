@@ -69,6 +69,33 @@ class CharacterUpdate(BaseModel):
     voice_volume: int | None = Field(default=None, ge=0, le=100)
 
 
+class CharacterModelSettings(BaseModel):
+    architecture: str | None = None
+    checkpoint: str | None = None
+    vae: str | None = None
+    lora_name: str | None = None
+    lora_strength: float | None = Field(default=None, ge=-2.0, le=2.0)
+    reference_strength: float | None = Field(default=None, ge=0.0, le=1.0)
+    denoise: float | None = Field(default=None, ge=0.0, le=1.0)
+    preset: str | None = None
+
+
+class CharacterSheetRequest(BaseModel):
+    reference_asset_id: str | None = None
+    allow_unapproved_reference: bool = False
+    seed: int | None = None
+    steps: int | None = Field(default=None, ge=1, le=100)
+    cfg: float | None = Field(default=None, ge=0.0, le=30.0)
+    denoise: float = Field(default=0.45, ge=0.0, le=1.0)
+    width: int | None = Field(default=None, ge=64, le=2048)
+    height: int | None = Field(default=None, ge=64, le=2048)
+    architecture: str | None = None
+    checkpoint: str | None = None
+    vae: str | None = None
+    lora_name: str | None = None
+    lora_strength: float | None = None
+
+
 class VoiceAssignment(BaseModel):
     engine: str = ""
     voice: str = ""
@@ -121,10 +148,10 @@ class CharacterGenerateRequest(BaseModel):
     label: str = Field(default="", max_length=80)
     prompt: str | None = None
     negative_prompt: str | None = None
-    width: int | None = Field(default=512, ge=64, le=2048)
-    height: int | None = Field(default=768, ge=64, le=2048)
-    steps: int | None = Field(default=24, ge=1, le=100)
-    cfg: float | None = Field(default=7.0, ge=0.0, le=30.0)
+    width: int | None = Field(default=None, ge=64, le=2048)
+    height: int | None = Field(default=None, ge=64, le=2048)
+    steps: int | None = Field(default=None, ge=1, le=100)
+    cfg: float | None = Field(default=None, ge=0.0, le=30.0)
     seed: int | None = None
     workflow_id: str | None = None
     reference_asset_id: str | None = None
@@ -159,10 +186,16 @@ class BackgroundGenerateRequest(BaseModel):
     negative_prompt: str | None = None
     width: int | None = Field(default=None, ge=64, le=2048)
     height: int | None = Field(default=None, ge=64, le=2048)
-    steps: int | None = Field(default=24, ge=1, le=100)
-    cfg: float | None = Field(default=7.0, ge=0.0, le=30.0)
+    steps: int | None = Field(default=None, ge=1, le=100)
+    cfg: float | None = Field(default=None, ge=0.0, le=30.0)
     seed: int | None = None
     workflow_id: str | None = None
+    use_preset: bool = True
+    architecture: str | None = None
+    checkpoint: str | None = None
+    vae: str | None = None
+    lora_name: str | None = None
+    lora_strength: float | None = None
 
 
 class MediaAttach(BaseModel):

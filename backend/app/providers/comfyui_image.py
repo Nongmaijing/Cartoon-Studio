@@ -47,6 +47,13 @@ class ComfyUIImageProvider(ImageProvider):
             denoise=kwargs.get("denoise"),
             control_strength=kwargs.get("control_strength"),
             control_net_name=kwargs.get("control_net_name"),
+            architecture=kwargs.get("architecture"),
+            purpose=kwargs.get("purpose") or "scene",
+            preset=kwargs.get("preset"),
+            checkpoint=kwargs.get("checkpoint"),
+            vae=kwargs.get("vae"),
+            lora_name=kwargs.get("lora_name"),
+            lora_strength=kwargs.get("lora_strength"),
         )
         return {"provider": "comfyui", "job": job, "job_id": job.get("id")}
 

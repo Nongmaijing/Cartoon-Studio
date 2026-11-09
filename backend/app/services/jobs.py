@@ -14,7 +14,7 @@ from ..comfy.client import ComfyClient, ComfyError
 from ..config import load_config
 from ..db import execute, now, query, query_one
 from ..logging_setup import logger
-from ..workflows.adapter import build_prompt, validate_workflow
+from ..workflows.adapter import apply_model_adapters, build_prompt, validate_workflow
 from ..workflows.registry import load_workflow
 from .engines import combo_options
 from .workflow_checks import missing_node_classes
@@ -42,6 +42,49 @@ def _client(config: dict[str, Any]) -> ComfyClient:
         config["comfyui"]["server_url"],
         timeout=float(config["comfyui"].get("request_timeout_seconds", 120)),
     )
+
+
+def _apply_checkpoint_override(api: dict[str, Any], mapping: dict[str, Any], params: dict[str, Any]) -> None:
+    checkpoint = params.get("checkpoint")
+    if not checkpoint:
+        return
+    spec = (mapping.get("roles") or {}).get("checkpoint")
+    if not spec:
+        return
+    node = api.get(str(spec.get("node")))
+    if node and spec.get("input") in (node.get("inputs") or {}):
+        node["inputs"][spec["input"]] = checkpoint
+
+
+def _validate_optional_models(params: dict[str, Any], object_info: dict[str, Any]) -> None:
+    vae_name = params.get("vae")
+    if vae_name:
+        if "VAELoader" not in object_info:
+            raise ValueError("The selected VAE needs the VAELoader node, which is not installed in ComfyUI.")
+        spec = (
+            ((object_info.get("VAELoader", {}).get("input") or {}).get("required") or {})
+            .get("vae_name")
+        )
+        options = combo_options(spec)
+        if options and vae_name not in options:
+            raise ValueError(
+                f"VAE '{vae_name}' is not available in ComfyUI. "
+                f"Available: {', '.join(map(str, options[:8])) or 'none'}."
+            )
+    lora_name = params.get("lora_name")
+    if lora_name:
+        if "LoraLoader" not in object_info:
+            raise ValueError("The selected LoRA needs the LoraLoader node, which is not installed in ComfyUI.")
+        spec = (
+            ((object_info.get("LoraLoader", {}).get("input") or {}).get("required") or {})
+            .get("lora_name")
+        )
+        options = combo_options(spec)
+        if options and lora_name not in options:
+            raise ValueError(
+                f"LoRA '{lora_name}' is not available in ComfyUI. "
+                f"Available: {', '.join(map(str, options[:8])) or 'none'}."
+            )
 
 
 def mark_interrupted_jobs() -> None:
@@ -224,6 +267,8 @@ class JobRunner:
             raise ValueError("Workflow has no mapping sidecar, so it cannot be run.")
 
         object_info = await client.object_info()
+        _apply_checkpoint_override(api, mapping, params)
+        _validate_optional_models(params, object_info)
         checks = validate_workflow(api, mapping, object_info)
         failed = [check for check in checks if not check["ok"]]
         if failed:
@@ -267,6 +312,8 @@ class JobRunner:
                 node["inputs"][prefix_role["input"]] = f"cartoon_studio/{job_id}"
 
         prompt, applied = build_prompt(api, mapping, params)
+        prompt, adapter_applied = apply_model_adapters(prompt, params)
+        applied.extend(adapter_applied)
         logger.info("Submitting job %s with roles applied: %s", job_id, ", ".join(sorted(applied)))
 
         submitted = await client.submit(prompt, client_id=f"cartoon-studio-{job_id}")
