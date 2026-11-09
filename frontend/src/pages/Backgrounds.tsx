@@ -6,10 +6,11 @@ import type { Background, Job, MediaItem } from "../types";
 import { Alert, EmptyState, PageHeader, ProgressBar, StatusBadge } from "../components/Ui";
 
 const ASPECTS = [
-  { ratio: "16:9", width: 1024, height: 576, label: "16:9 · 1024×576" },
-  { ratio: "4:3", width: 896, height: 672, label: "4:3 · 896×672" },
-  { ratio: "1:1", width: 768, height: 768, label: "1:1 · 768×768" },
-  { ratio: "9:16", width: 576, height: 1024, label: "9:16 · 576×1024" },
+  { ratio: "16:9", width: 1024, height: 576, label: "16:9 ? 1024?576 (SD 1.5)" },
+  { ratio: "16:9", width: 1216, height: 832, label: "16:9 ? 1216?832 (SDXL)" },
+  { ratio: "4:3", width: 896, height: 672, label: "4:3 ? 896?672" },
+  { ratio: "1:1", width: 768, height: 768, label: "1:1 ? 768?768" },
+  { ratio: "9:16", width: 576, height: 1024, label: "9:16 ? 576?1024" },
 ];
 
 interface BackgroundProfile {
