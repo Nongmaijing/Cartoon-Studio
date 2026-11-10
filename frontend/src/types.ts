@@ -637,8 +637,19 @@ export interface AIMessage {
   created_at: string;
 }
 
-export interface AIToolExecution {
+export interface AIDirectorModel {
   id: string;
+  provider: "openai" | "ollama";
+  model: string;
+  label: string;
+  available: boolean;
+  tools: boolean;
+  local: boolean;
+  parameter_size?: string;
+  quantization?: string;
+}
+
+export interface AIToolExecution {  id: string;
   conversation_id: string | null;
   tool_name: string;
   arguments: Record<string, any>;

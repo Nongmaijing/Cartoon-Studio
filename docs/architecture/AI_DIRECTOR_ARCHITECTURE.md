@@ -62,12 +62,27 @@ The context includes:
 
 This is progress streaming. Token-level deltas are not currently emitted; the final assistant message arrives as one event.
 
+## Model selection
+
+`GET /api/v1/ai/models` returns:
+
+- the configured OpenAI model (`openai:<model>`) when `OPENAI_API_KEY` and `OPENAI_MODEL` are set;
+- every installed Ollama model (`ollama:<name>`) with its `tools` capability.
+
+The Director page stores the selected `provider:model` on the conversation and sends
+`provider`/`model` with each message. Resolution order is: explicit request, conversation
+model, then the configured OpenAI default, then `OLLAMA_MODEL`.
+
+- **OpenAI** uses the Responses API loop described above.
+- **Ollama** uses `POST /v1/chat/completions` with Chat Completions tool schemas and a
+  `tool`-role continuation loop. Models without the `tools` capability are rejected with a
+  clear configuration error, and the UI disables them.
+
+A read-only local `list_projects` turn on `qwen3:8b` completed in about 129 seconds and
+executed the tool correctly.
+
 ## No OpenAI key
 
-The Director returns HTTP 503 with:
-
-```
-OpenAI is not configured. Set OPENAI_API_KEY and OPENAI_MODEL.
-```
-
-The MCP server and production tools remain usable without OpenAI.
+Without `OPENAI_API_KEY`, the Director can still run a local Ollama model selected in the
+page. If neither OpenAI nor a local model is available, the request fails with a clear
+configuration error. The MCP server and production tools remain usable independently.

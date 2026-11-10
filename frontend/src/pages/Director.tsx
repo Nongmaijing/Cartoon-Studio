@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useProject } from "../ProjectContext";
 import type {
   AIConversation,
+  AIDirectorModel,
   AIMessage,
   ChatGPTTunnelStatus,
   Episode,
@@ -53,6 +54,8 @@ export default function Director() {
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [aiModel, setAiModel] = useState<string | null>(null);
   const [localLlm, setLocalLlm] = useState<string | null>(null);
+  const [directorModels, setDirectorModels] = useState<AIDirectorModel[]>([]);
+  const [directorModel, setDirectorModel] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [tunnel, setTunnel] = useState<ChatGPTTunnelStatus | null>(null);
@@ -112,16 +115,25 @@ export default function Director() {
       return;
     }
     try {
-      const [episodeList, conversationList, health] = await Promise.all([
+      const [episodeList, conversationList, health, modelList] = await Promise.all([
         api.episodes(selectedId),
         api.aiConversations(selectedId),
         api.aiHealth(),
+        api.aiModels(),
       ]);
       setEpisodes(episodeList);
       setConversations(conversationList);
       setAiConfigured(health.openai.configured);
       setAiModel(health.model);
       setLocalLlm(health.llm?.ollama?.available ? String(health.llm.ollama.default_model || "ollama") : null);
+      setDirectorModels(modelList.models);
+      setDirectorModel((current) => {
+        if (current) return current;
+        const stored = window.localStorage.getItem("directorModel") || "";
+        if (modelList.models.some((item) => item.id === stored)) return stored;
+        if (modelList.default) return modelList.default;
+        return modelList.models.find((item) => item.tools)?.id || "";
+      });
       setSelectedEpisodeId((current) =>
         current && episodeList.some((episode) => episode.id === current) ? current : episodeList[0]?.id || ""
       );
@@ -231,6 +243,7 @@ export default function Director() {
     setInput("");
     try {
       const id = await ensureConversation();
+      const selectedDirectorModel = directorModels.find((item) => item.id === directorModel);
       const response = await fetch(`/api/v1/ai/conversations/${id}/messages/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,6 +251,8 @@ export default function Director() {
           message: text,
           project_id: selectedId,
           episode_id: selectedEpisodeId || null,
+          provider: selectedDirectorModel?.provider || null,
+          model: selectedDirectorModel?.model || null,
         }),
       });
       if (!response.ok || !response.body) {
@@ -636,18 +651,46 @@ export default function Director() {
               <h2>Director Chat</h2>
               <div className="panel-sub">
                 {selectedProject?.name} · {selectedEpisode?.name || "No episode selected"} ·{" "}
-                {aiConfigured ? `model ${aiModel || "configured"}` : localLlm ? `local LLM ${localLlm}` : "OpenAI not configured"}
+                {directorModels.find((item) => item.id === directorModel)?.label ||
+                  (aiConfigured ? `model ${aiModel || "configured"}` : localLlm ? `local LLM ${localLlm}` : "No model configured")}
               </div>
             </div>
             {sending && <StatusBadge status="running" />}
           </div>
 
           <div className="ai-conversation-bar">
-            <select value={conversationId} onChange={(event) => setConversationId(event.target.value)}>
+            <select
+              value={conversationId}
+              onChange={(event) => {
+                const next = event.target.value;
+                setConversationId(next);
+                const conversation = conversations.find((item) => item.id === next);
+                if (conversation?.model && directorModels.some((item) => item.id === conversation.model)) {
+                  setDirectorModel(conversation.model);
+                  window.localStorage.setItem("directorModel", conversation.model);
+                }
+              }}
+            >
               <option value="">New conversation</option>
               {conversations.map((conversation) => (
                 <option key={conversation.id} value={conversation.id}>
                   {conversation.title || conversation.id}
+                </option>
+              ))}
+            </select>
+            <select
+              value={directorModel}
+              onChange={(event) => {
+                setDirectorModel(event.target.value);
+                window.localStorage.setItem("directorModel", event.target.value);
+              }}
+              title="Director model"
+            >
+              <option value="">Default model</option>
+              {directorModels.map((model) => (
+                <option key={model.id} value={model.id} disabled={!model.tools}>
+                  {model.label}
+                  {model.tools ? "" : " (no tool calling)"}
                 </option>
               ))}
             </select>

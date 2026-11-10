@@ -33,6 +33,44 @@ async def ai_health() -> dict[str, Any]:
     }
 
 
+@router.get("/models")
+async def director_models() -> dict[str, Any]:
+    """Models the Director can use, with local tool-calling capability."""
+    openai = openai_settings()
+    models: list[dict[str, Any]] = []
+    if openai["api_key"] and openai["model"]:
+        models.append(
+            {
+                "id": f"openai:{openai['model']}",
+                "provider": "openai",
+                "model": openai["model"],
+                "label": f"OpenAI · {openai['model']}",
+                "available": True,
+                "tools": True,
+                "local": False,
+            }
+        )
+    for item in await llm_provider.ollama_models():
+        capabilities = item.get("capabilities") or []
+        models.append(
+            {
+                "id": f"ollama:{item['name']}",
+                "provider": "ollama",
+                "model": item["name"],
+                "label": f"Ollama · {item['name']}",
+                "available": True,
+                "tools": "tools" in capabilities,
+                "local": True,
+                "parameter_size": item.get("parameter_size"),
+                "quantization": item.get("quantization"),
+            }
+        )
+    default = next((item["id"] for item in models if item["provider"] == "openai"), None)
+    if default is None:
+        default = next((item["id"] for item in models if item["tools"]), None)
+    return {"models": models, "default": default}
+
+
 @router.get("/tools")
 async def tools() -> dict[str, Any]:
     return {
@@ -84,6 +122,8 @@ async def send_message(conversation_id: str, payload: AIMessageCreate) -> dict[s
             project_id=payload.project_id,
             episode_id=payload.episode_id,
             actor="ai_director",
+            provider=payload.provider,
+            model=payload.model,
         )
     except ServiceError as exc:
         _raise(exc)
@@ -102,6 +142,8 @@ async def stream_message(conversation_id: str, payload: AIMessageCreate) -> Stre
             project_id=payload.project_id,
             episode_id=payload.episode_id,
             actor="ai_director",
+            provider=payload.provider,
+            model=payload.model,
         ):
             yield _sse(event["event"], event["data"])
 

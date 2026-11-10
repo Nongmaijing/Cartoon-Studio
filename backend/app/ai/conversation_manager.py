@@ -89,6 +89,7 @@ def update_conversation(
     context: dict[str, Any] | None = None,
     project_id: str | None = None,
     episode_id: str | None = None,
+    model: str | None = None,
 ) -> None:
     parts = ["updated_at = ?"]
     params: list[Any] = [now()]
@@ -104,6 +105,9 @@ def update_conversation(
     if episode_id is not None:
         parts.append("episode_id = ?")
         params.append(episode_id)
+    if model is not None:
+        parts.append("model = ?")
+        params.append(model)
     params.append(conversation_id)
     execute(f"UPDATE ai_conversations SET {', '.join(parts)} WHERE id = ?", params)
 

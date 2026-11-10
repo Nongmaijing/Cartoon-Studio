@@ -16,6 +16,8 @@ class AIMessageCreate(BaseModel):
     message: str = Field(min_length=1, max_length=20000)
     project_id: str | None = None
     episode_id: str | None = None
+    provider: str | None = None
+    model: str | None = None
 
 
 class ProductionStartRequest(BaseModel):

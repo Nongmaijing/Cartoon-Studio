@@ -1,6 +1,6 @@
 # Cartoon Studio
 
-Local, dark-themed production app for Western 2D cartoon episodes, powered by an existing **ComfyUI** installation. **All six production phases plus the dual AI integration are complete:** application shell, dashboard, ComfyUI connection, workflow discovery, DreamShaper 8 image generation, 4× upscaling, project/character/background/scene management, Wan 2.2 video, character identity and pose control, Kokoro neural voice/dialogue, episode timeline and FFmpeg MP4 assembly, a shared production service layer, a provider registry, an automated production orchestrator, an authenticated MCP server for ChatGPT, and an in-app AI Director using the OpenAI Responses API.
+Local, dark-themed production app for Western 2D cartoon episodes, powered by an existing **ComfyUI** installation. **All six production phases plus the dual AI integration are complete:** application shell, dashboard, ComfyUI connection, workflow discovery, DreamShaper 8 image generation, 4× upscaling, project/character/background/scene management, Wan 2.2 video, character identity and pose control, Kokoro neural voice/dialogue, episode timeline and FFmpeg MP4 assembly, a shared production service layer, a provider registry, an automated production orchestrator, an authenticated MCP server for ChatGPT, and an in-app AI Director that can use OpenAI or a local Ollama model.
 
 > **AI integration complete (v0.7.0).** The local production system remains fully usable without OpenAI. The AI Director activates when `OPENAI_API_KEY` and `OPENAI_MODEL` are configured. The MCP server is implemented and bearer-token tested; ChatGPT account-side connector setup is a deployment step.
 
@@ -482,10 +482,19 @@ Media endpoint: `GET /api/assets/{asset_id}/file` (path-traversal guarded to the
 
 Two AI front ends share the exact same production system:
 
-- **In-app AI Director** — a React page (`/director`) backed by the OpenAI Responses API.
+- **In-app AI Director** — a React page (`/director`) backed by the OpenAI Responses API or a local Ollama model selected in the page.
 - **MCP server** — an authenticated server for ChatGPT and other MCP clients, built with the official MCP Python SDK.
 
 Neither has its own database, queue, project manager, or generator. Both call the shared `ToolRegistry`, which calls the shared service layer, which uses the existing `jobs` queue, providers, assets and FFmpeg export.
+
+### Director model selection
+
+The Director page has a model selector next to the conversation picker:
+
+- **OpenAI** — the configured `OPENAI_MODEL`, using the Responses API.
+- **Ollama** — any installed local model that reports the `tools` capability, using the OpenAI-compatible `/v1/chat/completions` endpoint.
+
+`GET /api/v1/ai/models` lists both. The choice is stored with the conversation (`provider:model`) and sent with each message. Models without tool calling are shown but disabled, because the Director cannot run production actions without tools. Local turns are slower than OpenAI; a read-only `list_projects` turn on Qwen3 8B took about 129 seconds on this machine.
 
 ```
                  ┌───────────────────────┐
@@ -493,7 +502,7 @@ ChatGPT / MCP ──▶│  MCP server (8020)     │──┐
                  └───────────────────────┘  │
                                             ├──▶ ToolRegistry (56 tools) ──▶ shared services
                  ┌───────────────────────┐  │                                    │
-In-app Director ─│  OpenAI Responses API │──┘                                    ├──▶ SQLite
+In-app Director ─│ OpenAI or Ollama      │──┘                                    ├──▶ SQLite
                  └───────────────────────┘                                       ├──▶ ComfyUI / Kokoro / FFmpeg
                                                                                  └──▶ outputs/
 ```
@@ -546,12 +555,12 @@ These are the only path to production data. REST, AI Director and MCP all use th
 - Verified with a real MCP client: `initialize`, `list_tools`, `call_tool`, shared project/character/episode writes and REST reads in both directions.
 - OAuth: the server is a bearer-token **resource server**. A full OAuth authorization server is not implemented and is documented as a proxy/deployment step.
 
-### OpenAI status on this machine
+### Director model status on this machine
 
-- The implementation uses `AsyncOpenAI` + `client.responses.create(...)` with `previous_response_id` and `function_call_output` continuation.
-- **Live calls are not active here** because `OPENAI_API_KEY` and `OPENAI_MODEL` are not set. `/api/v1/ai/health` reports `configured: false`, and Director messages return HTTP 503 with a clear message.
-- The full tool-call loop is covered by a mocked test.
-- To enable: put `OPENAI_API_KEY` and a model ID available to your account in `D:\bro\CartoonStudio\.env`, then restart the backend.
+- OpenAI is configured and uses `AsyncOpenAI` + `client.responses.create(...)` with `previous_response_id` and `function_call_output` continuation.
+- Local Ollama models are also supported through Chat Completions with the same tool schemas. The model must report the `tools` capability.
+- The AI Director page lists both providers. A live read-only local turn on `qwen3:8b` called `list_projects` successfully in about 129 seconds.
+- To change the OpenAI model, update `OPENAI_MODEL` in `D:\bro\CartoonStudio\.env` and restart the backend. To change the local model, select it in the Director page.
 
 ### One-click ChatGPT connection (UI)
 
@@ -587,7 +596,8 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 
 ### AI/MCP limitations (honest status)
 
-- Live OpenAI Director requires credentials and a valid model ID; not active on this machine.
+- OpenAI Director requires credentials and a valid model ID; local Ollama models work when they report tool-calling support.
+- Local Director turns are substantially slower than OpenAI on this hardware.
 - ChatGPT connector setup depends on the account/workspace UI and plan; not performed here.
 - Full OAuth authorization server is not implemented.
 - Cloud video generation is interface-only; no adapter is claimed.

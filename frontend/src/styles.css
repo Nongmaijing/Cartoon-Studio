@@ -460,7 +460,7 @@ pre.code {
 }
 
 /* ---------- AI Director ---------- */
-.ai-conversation-bar { margin-bottom: 10px; }
+.ai-conversation-bar { margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
 .ai-conversation-bar select { width: 100%; }
 .ai-messages {
   display: flex;

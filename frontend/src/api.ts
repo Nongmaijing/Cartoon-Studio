@@ -1,5 +1,6 @@
 import type {
   AIConversation,
+  AIDirectorModel,
   AIToolDefinition,
   AIToolExecution,
   AppConfig,
@@ -469,6 +470,7 @@ export const api = {
     request<ModelDownload>(`/v1/models/downloads/${id}/cancel`, { method: "POST" }),
 
   aiHealth: () => request<{ status: string; openai: Record<string, any>; llm?: Record<string, any>; model: string | null }>("/v1/ai/health"),
+  aiModels: () => request<{ models: AIDirectorModel[]; default: string | null }>("/v1/ai/models"),
   aiTools: () =>
     request<{ count: number; tools: AIToolDefinition[] }>("/v1/ai/tools"),
   aiConversations: (projectId?: string) =>
