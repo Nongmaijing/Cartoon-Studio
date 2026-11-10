@@ -46,6 +46,31 @@ Explicit approval is required for:
 If a required action is blocked by a missing approval, record the blocker and
 continue with independent work.
 
+## Two MCP surfaces
+
+ChatGPT has two separate connections:
+
+| Surface | Port | Tools | Use |
+|---|---|---|---|
+| **Cartoon Studio MCP** | 8020 | 56 studio tools | Production: projects, characters, scenes, generation, approvals |
+| **OpenCode bridge MCP** | 8031 | 4 agent tools | Engineering: code, tests, workflows, diagnostics |
+
+Both are no-auth while their tunnels are live. They are independent servers with
+separate tokens in bearer mode.
+
+Coordination rules:
+
+- Use **studio MCP** for production reads/writes and generation requests.
+- Use the **OpenCode bridge** for code changes, tests, workflow files and diagnostics.
+- Announce studio writes that affect structure (new characters, scene changes,
+  generation approvals) so OpenCode does not overwrite them.
+- OpenCode treats studio data as authoritative; it will not silently replace
+  ChatGPT-created assets or scenes.
+- **Only the human approves** characters, canonical references, final cuts and
+  publishing. ChatGPT and OpenCode may prepare drafts and recommendations.
+- Public tunnels are reported with their current URL; do not assume an old URL still
+  works after a reconnect.
+
 ## Collaboration protocol
 
 ChatGPT reaches the agent through the standalone OpenCode bridge:
