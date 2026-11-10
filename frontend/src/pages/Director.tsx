@@ -62,6 +62,10 @@ export default function Director() {
   const [tunnelBusy, setTunnelBusy] = useState(false);
   const [tunnelError, setTunnelError] = useState("");
   const [tunnelTtl, setTunnelTtl] = useState(30);
+  const [ocTunnel, setOcTunnel] = useState<ChatGPTTunnelStatus | null>(null);
+  const [ocTunnelBusy, setOcTunnelBusy] = useState(false);
+  const [ocTunnelError, setOcTunnelError] = useState("");
+  const [ocTunnelTtl, setOcTunnelTtl] = useState(30);
   const messagesRef = useRef<HTMLDivElement | null>(null);
 
   const selectedProject = projects.find((project) => project.id === selectedId) || null;
@@ -80,6 +84,15 @@ export default function Director() {
       setTunnelError("");
     } catch (exc) {
       setTunnelError(exc instanceof Error ? exc.message : String(exc));
+    }
+  }, []);
+
+  const loadOpencodeTunnel = useCallback(async () => {
+    try {
+      setOcTunnel(await api.opencodeTunnelStatus());
+      setOcTunnelError("");
+    } catch (exc) {
+      setOcTunnelError(exc instanceof Error ? exc.message : String(exc));
     }
   }, []);
 
@@ -154,9 +167,13 @@ export default function Director() {
 
   useEffect(() => {
     loadTunnel();
-    const timer = window.setInterval(loadTunnel, 5000);
+    loadOpencodeTunnel();
+    const timer = window.setInterval(() => {
+      loadTunnel();
+      loadOpencodeTunnel();
+    }, 5000);
     return () => window.clearInterval(timer);
-  }, [loadTunnel]);
+  }, [loadTunnel, loadOpencodeTunnel]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -400,6 +417,60 @@ export default function Director() {
     }
   };
 
+  const connectOpenCode = async () => {
+    if (
+      !window.confirm(
+        "Start a public Cloudflare tunnel to the OpenCode bridge with authentication disabled?\n\n" +
+          "Anyone with the connector URL can start a coding agent that edits files and runs shell commands " +
+          "under your Windows account. " +
+          (ocTunnelTtl === 0
+            ? "The tunnel will stay active until you click Disconnect & secure."
+            : `The tunnel stops automatically after ${ocTunnelTtl} minutes.`)
+      )
+    ) {
+      return;
+    }
+    setOcTunnelBusy(true);
+    setOcTunnelError("");
+    setNotice("Starting the OpenCode tunnel. This can take 20–40 seconds…");
+    try {
+      const status = await api.startOpencodeTunnel({ confirm: true, ttl_minutes: ocTunnelTtl });
+      setOcTunnel(status);
+      setNotice("OpenCode tunnel is live. Add it as a second ChatGPT connector.");
+    } catch (exc) {
+      setOcTunnelError(exc instanceof Error ? exc.message : String(exc));
+      setNotice("");
+    } finally {
+      setOcTunnelBusy(false);
+    }
+  };
+
+  const disconnectOpenCode = async () => {
+    setOcTunnelBusy(true);
+    setOcTunnelError("");
+    setNotice("Stopping the OpenCode tunnel and restoring bearer authentication…");
+    try {
+      const status = await api.stopOpencodeTunnel();
+      setOcTunnel(status);
+      setNotice("OpenCode tunnel stopped. Bearer authentication is restored on 8030.");
+    } catch (exc) {
+      setOcTunnelError(exc instanceof Error ? exc.message : String(exc));
+      setNotice("");
+    } finally {
+      setOcTunnelBusy(false);
+    }
+  };
+
+  const copyOpenCodeUrl = async () => {
+    if (!ocTunnel?.connector_url) return;
+    try {
+      await navigator.clipboard.writeText(ocTunnel.connector_url);
+      setNotice("OpenCode connector URL copied.");
+    } catch {
+      setOcTunnelError("Could not copy automatically. Select and copy the URL manually.");
+    }
+  };
+
   const startProduction = async () => {
     if (!selectedId || !selectedEpisodeId) {
       setError("Select an episode before starting production.");
@@ -637,6 +708,113 @@ export default function Director() {
                 {tunnelBusy ? "Securing…" : "Disconnect & secure"}
               </button>
               <button className="btn ghost" onClick={loadTunnel} disabled={tunnelBusy}>
+                Refresh status
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel-head">
+          <div>
+            <h2>OpenCode Bridge Connection</h2>
+            <div className="panel-sub">
+              Separate MCP on 8030 for OpenCode agent collaboration. Auto-secures after the selected session length.
+            </div>
+          </div>
+          <span className={`chip ${ocTunnel?.active ? "exp" : ""}`}>
+            {ocTunnel?.active ? "Tunnel live" : "Off"}
+          </span>
+        </div>
+
+        {ocTunnelError && (
+          <div style={{ marginBottom: 10 }}>
+            <Alert kind="error">{ocTunnelError}</Alert>
+          </div>
+        )}
+
+        {!ocTunnel?.active ? (
+          <div className="chatgpt-connect-body">
+            <p className="tiny muted">
+              Starts a Cloudflare quick tunnel to port 8030 and temporarily disables auth on the
+              OpenCode bridge. Anyone with the URL can start a coding agent that edits files and
+              runs shell commands as your Windows user.
+            </p>
+            <div className="row">
+              <label className="tiny muted" htmlFor="opencode-ttl">
+                Keep connected
+              </label>
+              <select
+                id="opencode-ttl"
+                value={ocTunnelTtl}
+                onChange={(event) => setOcTunnelTtl(Number(event.target.value))}
+                disabled={ocTunnelBusy}
+              >
+                <option value={30}>30 minutes</option>
+                <option value={60}>1 hour</option>
+                <option value={120}>2 hours</option>
+                <option value={240}>4 hours</option>
+                <option value={480}>8 hours</option>
+                <option value={0}>Never auto-stop</option>
+              </select>
+              <button
+                className="btn primary"
+                onClick={connectOpenCode}
+                disabled={ocTunnelBusy || ocTunnel?.cloudflared_available === false}
+              >
+                {ocTunnelBusy ? "Starting tunnel…" : "Connect OpenCode"}
+              </button>
+              <button className="btn ghost" onClick={loadOpencodeTunnel} disabled={ocTunnelBusy}>
+                Refresh
+              </button>
+              {ocTunnel?.cloudflared_available === false && (
+                <span className="tiny" style={{ color: "var(--danger)" }}>
+                  cloudflared not found
+                </span>
+              )}
+            </div>
+            <div className="tiny muted">
+              Add this as a second ChatGPT connector, separate from Cartoon Studio.
+            </div>
+          </div>
+        ) : (
+          <div className="chatgpt-connect-body">
+            <Alert kind="warn">
+              No-auth mode is live. Anyone with this URL can start an OpenCode agent.{" "}
+              {ocTunnel.ttl_minutes === 0
+                ? "No auto-stop is set; click Disconnect & secure when finished."
+                : `The tunnel stops automatically in ${Math.max(
+                    0,
+                    Math.ceil((ocTunnel.remaining_seconds ?? 0) / 60)
+                  )} min.`}
+            </Alert>
+            {ocTunnel.public_reachable === false && (
+              <Alert kind="warn">
+                The public URL is not reachable yet. Wait a few seconds, then click Refresh before
+                adding the connector.
+              </Alert>
+            )}
+            <div className="chatgpt-url-row">
+              <code>{ocTunnel.connector_url}</code>
+              <button className="btn sm" onClick={copyOpenCodeUrl}>
+                Copy URL
+              </button>
+            </div>
+            <ol className="chatgpt-steps">
+              <li>Open ChatGPT Plugins and add another custom MCP server.</li>
+              <li>Paste the OpenCode connector URL above.</li>
+              <li>
+                Choose <strong>No authentication</strong>.
+              </li>
+              <li>Create it, scan tools, and enable it.</li>
+              <li>Use `opencode_ask` and `opencode_task` in chats.</li>
+            </ol>
+            <div className="row">
+              <button className="btn" onClick={disconnectOpenCode} disabled={ocTunnelBusy}>
+                {ocTunnelBusy ? "Securing…" : "Disconnect & secure"}
+              </button>
+              <button className="btn ghost" onClick={loadOpencodeTunnel} disabled={ocTunnelBusy}>
                 Refresh status
               </button>
             </div>

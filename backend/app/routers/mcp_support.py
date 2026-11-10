@@ -9,7 +9,7 @@ from ..core.runtime import integration_status, mcp_settings
 from ..core.security import create_mcp_token
 from ..db import execute, now, query
 from ..schemas_ai import MCPTokenCreate, MCPToolExecuteRequest, TunnelStartRequest
-from ..services import mcp_tunnel_service
+from ..services import mcp_tunnel_service, opencode_tunnel_service
 from ..services.errors import ServiceError
 
 router = APIRouter(prefix="/api/v1/mcp", tags=["mcp-support"])
@@ -112,5 +112,30 @@ async def tunnel_start(payload: TunnelStartRequest) -> dict[str, Any]:
 async def tunnel_stop() -> dict[str, Any]:
     try:
         return await mcp_tunnel_service.stop_tunnel(actor="user", reason="user")
+    except ServiceError as exc:
+        _raise(exc)
+
+
+@router.get("/tunnel/opencode/status")
+async def opencode_tunnel_status() -> dict[str, Any]:
+    return await opencode_tunnel_service.get_status()
+
+
+@router.post("/tunnel/opencode/start")
+async def opencode_tunnel_start(payload: TunnelStartRequest) -> dict[str, Any]:
+    try:
+        return await opencode_tunnel_service.start_tunnel(
+            confirm=payload.confirm,
+            ttl_minutes=payload.ttl_minutes,
+            actor="user",
+        )
+    except ServiceError as exc:
+        _raise(exc)
+
+
+@router.post("/tunnel/opencode/stop")
+async def opencode_tunnel_stop() -> dict[str, Any]:
+    try:
+        return await opencode_tunnel_service.stop_tunnel(actor="user", reason="user")
     except ServiceError as exc:
         _raise(exc)

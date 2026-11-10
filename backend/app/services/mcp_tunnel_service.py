@@ -256,8 +256,16 @@ async def _read_tunnel_url(proc: asyncio.subprocess.Process, timeout: float = 45
     raise ServiceError("cloudflared did not publish a public URL in time.", status_code=504, code="tunnel_timeout")
 
 
-def _spawn_mcp(port: int, *, auth_mode: str, public_url: str = "", host: str = "") -> subprocess.Popen:
+def _spawn_mcp(
+    port: int,
+    *,
+    auth_mode: str,
+    public_url: str = "",
+    host: str = "",
+    profile: str = "studio",
+) -> subprocess.Popen:
     env = os.environ.copy()
+    env["MCP_PROFILE"] = profile
     env["MCP_HOST"] = "127.0.0.1"
     env["MCP_PORT"] = str(port)
     env["MCP_AUTH_MODE"] = auth_mode
@@ -283,7 +291,7 @@ def _spawn_mcp(port: int, *, auth_mode: str, public_url: str = "", host: str = "
                 "--transport",
                 "streamable-http",
                 "--profile",
-                "studio",
+                profile,
                 "--host",
                 "127.0.0.1",
                 "--port",

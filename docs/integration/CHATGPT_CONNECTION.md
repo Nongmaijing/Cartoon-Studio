@@ -48,12 +48,13 @@ The agent-collaboration tools are a **separate MCP server** on port 8030:
 D:\bro\CartoonStudio\scripts\start_mcp_opencode.bat
 ```
 
-Add a second ChatGPT connector pointing at `http://127.0.0.1:8030/mcp` (or an
-HTTPS tunnel to 8030 for ChatGPT web). It uses tokens with scope `opencode`,
-not `production`. See `docs/integration/OPENCODE_BRIDGE.md`.
+Add a second ChatGPT connector pointing at the tunnel URL from **Connect OpenCode**
+in AI Director (or `http://127.0.0.1:8030/mcp` for a bearer-capable client). It uses
+tokens with scope `opencode`, not `production`. See
+`docs/integration/OPENCODE_BRIDGE.md`.
 
-The built-in **Connect ChatGPT** button still exposes only the studio server on
-8020.
+The **Connect ChatGPT** button exposes the studio server on 8020; **Connect OpenCode**
+exposes the agent bridge on 8030. They are independent.
 
 ---
 

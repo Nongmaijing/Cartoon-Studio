@@ -46,7 +46,7 @@ from .routers import (
 )
 from .services.episodes import mark_interrupted_exports
 from .services.jobs import runner
-from .services import mcp_tunnel_service
+from .services import mcp_tunnel_service, opencode_tunnel_service
 
 load_dotenv(BASE_DIR / ".env")
 APP_VERSION = "0.7.0"
@@ -60,6 +60,7 @@ async def lifespan(app: FastAPI):
     mark_interrupted_exports()
     await resume_pending_runs()
     await mcp_tunnel_service.cleanup_stale_state()
+    await opencode_tunnel_service.cleanup_stale_state()
 
     # Discover the live ComfyUI installation once at startup, then remember it.
     try:

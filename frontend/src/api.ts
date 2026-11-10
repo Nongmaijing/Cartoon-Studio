@@ -559,6 +559,15 @@ export const api = {
     }),
   stopChatGPTTunnel: () =>
     request<ChatGPTTunnelStatus>("/v1/mcp/tunnel/stop", { method: "POST" }),
+  opencodeTunnelStatus: () =>
+    request<ChatGPTTunnelStatus>("/v1/mcp/tunnel/opencode/status"),
+  startOpencodeTunnel: (payload: { confirm: boolean; ttl_minutes: number }) =>
+    request<ChatGPTTunnelStatus>("/v1/mcp/tunnel/opencode/start", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  stopOpencodeTunnel: () =>
+    request<ChatGPTTunnelStatus>("/v1/mcp/tunnel/opencode/stop", { method: "POST" }),
 
   comfyTest: () => request<ComfyTest>("/comfy/test"),
   discovery: () => request<DiscoveryInfo>("/comfy/discovery"),

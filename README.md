@@ -562,7 +562,9 @@ These are the only path to production data. REST, AI Director and MCP all use th
 
 ### One-click ChatGPT connection (UI)
 
-Open the **AI Director** page and use the **ChatGPT Connection** panel:
+Open the **AI Director** page. There are two independent connection panels:
+
+**ChatGPT Connection** — studio tools on 8020:
 
 1. Click **Connect ChatGPT**.
 2. The backend starts a Cloudflare quick tunnel to port 8020, temporarily switches MCP to no-auth mode, waits for local and public health, and returns the connector URL.
@@ -570,7 +572,14 @@ Open the **AI Director** page and use the **ChatGPT Connection** panel:
 4. Click **Disconnect & secure** when finished. The tunnel stops, MCP returns to bearer mode, and the temporary state is removed.
 5. If you forget, the tunnel auto-stops after the selected session length (30 minutes to 8 hours; default 30 minutes). You can also choose **Never auto-stop**, which keeps it active until you click **Disconnect & secure** or the backend/cloudflared stops.
 
-The UI uses `/api/v1/mcp/tunnel/start|stop|status`. It requires `cloudflared` on PATH (installed here). The tunnel is public and no-auth while active, so use it only for a short local test.
+**OpenCode Bridge Connection** — agent tools on 8030:
+
+1. Click **Connect OpenCode**.
+2. It starts a separate tunnel to 8030, switches only the OpenCode bridge to no-auth mode, and shows a second connector URL.
+3. Add that URL as a separate ChatGPT connector, scan its four `opencode_*` tools, and enable it.
+4. Click **Disconnect & secure** to restore bearer mode on 8030.
+
+The UI uses `/api/v1/mcp/tunnel/start|stop|status` for studio and `/api/v1/mcp/tunnel/opencode/start|stop|status` for the bridge. Both require `cloudflared` on PATH. Both tunnels are public and no-auth while active, so use them only for short tests.
 
 ### Start and test MCP
 

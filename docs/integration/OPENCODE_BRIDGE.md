@@ -117,9 +117,9 @@ Add a **second** custom MCP connector:
 | Field | Value |
 |---|---|
 | Name | `OpenCode Bridge` |
-| URL (local bearer client) | `http://127.0.0.1:8030/mcp` |
-| URL (ChatGPT web) | an HTTPS tunnel to `8030`, ending in `/mcp` |
-| Authentication | bearer-capable client, or temporary no-auth tunnel |
+| URL (ChatGPT web) | click **Connect OpenCode** in AI Director, then copy the tunnel URL |
+| URL (bearer client) | `http://127.0.0.1:8030/mcp` |
+| Authentication | **No authentication** for the temporary tunnel |
 
 The tools are **not** in the studio connector. Once the OpenCode connector is
 connected, ask:
@@ -138,9 +138,12 @@ If a result says `waiting_for_permission`, read `pending_permissions`, then call
 `opencode_permission` with the request id. Use `reject` unless you understand the
 action. `always` creates a durable project rule.
 
-The built-in **Connect ChatGPT** button in AI Director still exposes the studio
-server (8020) only. For the OpenCode connector, use a bearer-capable client or a
-separate tunnel to 8030.
+The **Connect OpenCode** button in AI Director starts the 8030 tunnel, switches only
+the OpenCode bridge to no-auth mode, and restores bearer mode when you disconnect.
+It is separate from the studio **Connect ChatGPT** button.
+
+Add the connector, scan tools, and enable it. The OpenCode connector shows exactly
+four tools.
 
 ## Using it from a shell
 
