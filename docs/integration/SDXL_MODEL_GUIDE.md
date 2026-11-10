@@ -15,7 +15,8 @@ ComfyUI 0.44.2, RTX 4050 Laptop, 6 GB VRAM, 32 GB RAM.
 | Item | Installed |
 |---|---|
 | Checkpoints | `DreamShaperXL_1.0.safetensors` (SDXL, 6.60 GB), `DreamShaper_8_pruned.safetensors` (SD 1.5), `v1-5-pruned-emaonly-fp16.safetensors` (SD 1.5) |
-| SDXL checkpoint | **`DreamShaperXL_1.0.safetensors`** — selected in Model Studio |
+| SDXL checkpoint | **`DreamShaperXL_1.0.safetensors`** — selected in Model Studio; stored in `D:\bro\ComfyUI\Models\checkpoints` (6.60 GB) |
+| SDXL Diffusers source | `D:\bro\ComfyUI\Models\diffusers\dreamshaper-xl-1-0` (6.60 GB) |
 | VAEs | `wan2.2_vae.safetensors` (Wan), `pixel_space` (ComfyUI internal) |
 | SDXL VAE | Not needed separately — the converted checkpoint contains its VAE (`first_stage_model.*`) |
 | LoRAs | **None** |
@@ -54,13 +55,15 @@ ComfyUI checkpoint: it contains `unet/`, `text_encoder/`, `text_encoder_2/`, `va
 What was done on this machine:
 
 1. Downloaded only the fp16 Diffusers components (~6.60 GB total) into
-   `C:\Users\pagau\AppData\Local\Comfy-Desktop\ComfyUI-Shared\models\diffusers\dreamshaper-xl-1-0`.
+   `D:\bro\ComfyUI\Models\diffusers\dreamshaper-xl-1-0` (moved there from the C: shared
+   folder to keep C: free; the path is registered in `comfyui_extra_model_paths.yaml`).
    The full-precision UNet (~10.3 GB) was skipped for a 6 GB GPU.
 2. Installed `diffusers==0.35.2` into the ComfyUI virtual environment (0.42.x was
    incompatible with the installed `huggingface_hub`; installed with `--no-deps`).
 3. Converted the Diffusers pipeline to one ComfyUI-ready checkpoint with Hugging Face’s
    `scripts/convert_diffusers_to_original_sdxl.py` (fp16 file fallback), then wrote
-   `DreamShaperXL_1.0.safetensors` (6.60 GB) into the shared `models\checkpoints`.
+   `DreamShaperXL_1.0.safetensors` (6.60 GB) into
+   `D:\bro\ComfyUI\Models\checkpoints` (also moved off C: for disk space).
 
 Notes for future installs:
 
@@ -174,8 +177,8 @@ Reference conditioning: img2img works with the core workflow. SDXL ControlNet/IP
 | Test | Result |
 |---|---|
 | Model discovery | Passed — 3 checkpoints (1 SDXL), 2 VAEs, 0 LoRAs, 0 ControlNet, 1 upscaler |
-| SDXL checkpoint listing | Passed — `CheckpointLoaderSimple` lists `DreamShaperXL_1.0.safetensors` |
-| SDXL checkpoint load + encode | Passed — 512×512, 1 step, 8.0 s total round trip |
+| SDXL checkpoint listing | Passed — `CheckpointLoaderSimple` lists `DreamShaperXL_1.0.safetensors` (also after moving it to D:) |
+| SDXL checkpoint load + encode | Passed — 512×512, 1 step; 8.0 s warm, 22.3 s cold after the move |
 | Six SDXL workflows runnable | Passed — all six `runnable=true`, checkpoint resolved |
 | SDXL character generation | **Passed** — 1024×1024, `DreamShaperXL_1.0.safetensors` |
 | Four-view turnaround (Leo) | **Passed** — 4/4 images, sheet `71192986e23b`, seed `20261110` |
