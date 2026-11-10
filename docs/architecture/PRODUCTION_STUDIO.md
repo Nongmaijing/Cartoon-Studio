@@ -186,7 +186,7 @@ This is not a photoreal lip-sync renderer. Mouth-shape rendering is blocked unti
 | Production report | Passed — counts, statuses, resource usage, recent jobs |
 | SD 1.5 image generation | Passed — 384×384, asset `514163b98ec9` |
 | SDXL generation | Passed — 1024×1024, `DreamShaperXL_1.0.safetensors`, 30.3 s, peak 5602 MB, asset `343185cb8b15` |
-| SDXL workflows | Passed — all six `runnable=true` |
+| SDXL workflows | Passed — all seven `runnable=true` |
 | Four-view turnaround | Passed live — Leo sheet `71192986e23b`, 4 assets; prompt composition needs QA fixes |
 | SDXL whole-image edit | Passed — 1024×1024, 36.4 s, peak 6118 MB, asset `1a75110352d7`; global img2img does not replace backgrounds |
 | Masked SDXL inpainting | Passed — job `6771e5ee82da`, 30.7 s, peak 5570 MB, asset `c77daf17c8eb`; only masked region changed |

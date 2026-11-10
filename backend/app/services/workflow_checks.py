@@ -60,7 +60,8 @@ def workflow_readiness(
     mapping = loaded["mapping"]
     engine = str(mapping.get("engine") or "")
     if engine in ("sdxl", "sd15"):
-        checkpoint = configured_checkpoint(config, engine)
+        checkpoint_key = "sdxl_inpaint" if entry["id"] == "sdxl_inpaint" else engine
+        checkpoint = configured_checkpoint(config, checkpoint_key)
         checkpoint_role = (mapping.get("roles") or {}).get("checkpoint")
         if checkpoint and checkpoint_role:
             node = api.get(str(checkpoint_role.get("node")))

@@ -127,7 +127,8 @@ All SDXL templates:
 - default to batch size 1;
 - are structurally valid against the live ComfyUI node set;
 - are **runnable** now that `DreamShaperXL_1.0.safetensors` is installed and selected
-  (`/api/workflows` reports `runnable=true` for all six and resolves that checkpoint).
+  (`/api/workflows` reports `runnable=true` for all seven and resolves the correct
+  checkpoint per workflow, including the inpainting checkpoint).
 
 The SD 1.5 workflows are unchanged and remain runnable.
 
@@ -182,7 +183,7 @@ Reference conditioning: img2img works with the core workflow. SDXL ControlNet/IP
 | Model discovery | Passed — 4 checkpoints (1 SDXL, 1 SDXL inpainting, 2 SD15), 2 VAEs, 0 LoRAs, 0 ControlNet, 1 upscaler |
 | SDXL checkpoint listing | Passed — `CheckpointLoaderSimple` lists `DreamShaperXL_1.0.safetensors` (also after moving it to D:) |
 | SDXL checkpoint load + encode | Passed — 512×512, 1 step; 8.0 s warm, 22.3 s cold after the move |
-| Six SDXL workflows runnable | Passed — all six `runnable=true`, checkpoint resolved |
+| Seven SDXL workflows runnable | Passed — all seven `runnable=true`; the inpaint workflow resolves `SDXL_Inpainting_0.1.safetensors` |
 | SDXL character generation | **Passed** — 1024×1024, `DreamShaperXL_1.0.safetensors` |
 | Four-view turnaround (Leo) | **Passed** — 4/4 images, sheet `71192986e23b`, seed `20261110` |
 | Turnaround timing | 30.3–30.6 s per image (four images sequential) |
