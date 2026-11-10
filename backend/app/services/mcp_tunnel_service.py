@@ -282,6 +282,8 @@ def _spawn_mcp(port: int, *, auth_mode: str, public_url: str = "", host: str = "
                 str(MCP_SCRIPT),
                 "--transport",
                 "streamable-http",
+                "--profile",
+                "studio",
                 "--host",
                 "127.0.0.1",
                 "--port",

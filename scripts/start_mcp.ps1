@@ -16,7 +16,7 @@ Write-Host ""
 
 Push-Location $backend
 try {
-    & $python run_mcp.py --transport streamable-http --host 127.0.0.1 --port 8020
+    & $python run_mcp.py --transport streamable-http --profile studio --host 127.0.0.1 --port 8020
 } finally {
     Pop-Location
 }

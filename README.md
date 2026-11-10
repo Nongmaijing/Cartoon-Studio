@@ -39,7 +39,7 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | Windows start/stop scripts | Working |
 | Shared application service layer, provider registry, production orchestrator | Working |
 | AI Director page with chat, SSE progress, production control, approvals | Working — live OpenAI calls require a key/model |
-| MCP server (official SDK, streamable HTTP, bearer auth, 60 tools) | Working and tested |
+| MCP servers (studio 8020 / OpenCode 8030, bearer + scoped tokens) | Working and tested |
 | Production memory, approvals, character/asset versions, audit logs | Working |
 | Model Studio: checkpoint/VAE/LoRA discovery, architecture detection, compatibility and missing-dependency reporting | Working |
 | SDXL character/background workflow templates with tiled VAE and 6 GB presets | Templates valid; live SDXL blocked until an SDXL checkpoint is installed |
@@ -497,9 +497,8 @@ The Director page has a model selector next to the conversation picker:
 `GET /api/v1/ai/models` lists both. The choice is stored with the conversation (`provider:model`) and sent with each message. Models without tool calling are shown but disabled, because the Director cannot run production actions without tools. Local turns are slower than OpenAI; a read-only `list_projects` turn on Qwen3 8B took about 129 seconds on this machine.
 
 ```
-ChatGPT / MCP ──▶ MCP server (8020, 60 tools)
-                    ├─ 56 studio tools ──▶ ToolRegistry ──▶ shared services
-                    └─ 4 OpenCode tools ──▶ local OpenCode agent
+ChatGPT / MCP ──▶ Studio MCP (8020, 56 tools) ──▶ ToolRegistry ──▶ shared services
+ChatGPT / MCP ──▶ OpenCode MCP (8030, 4 tools) ──▶ local OpenCode agent
 
 In-app Director ──▶ OpenAI or Ollama ──▶ 56 studio tools
 
@@ -548,7 +547,7 @@ These are the only path to production data. REST, AI Director and MCP all use th
 - Official SDK `mcp==1.30.0`.
 - Transports: `stdio` and `streamable-http` at `http://127.0.0.1:8020/mcp`.
 - Bearer-token authentication (`MCP_BEARER_TOKEN` or hashed tokens in `mcp_tokens`).
-- 56 studio tools generated from the shared registry, plus 4 OpenCode bridge tools, 4 resources and 2 prompts.
+- Studio MCP exposes 56 tools from the shared registry, 4 resources and 2 prompts. The OpenCode bridge runs separately on 8030 with 4 tools and its own `opencode` token scope.
 - Structured JSON results, timeouts, idempotency keys, confirmation gates, audit logs.
 - Health endpoint: `http://127.0.0.1:8020/health`.
 - Verified with a real MCP client: `initialize`, `list_tools`, `call_tool`, shared project/character/episode writes and REST reads in both directions.
@@ -779,7 +778,7 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 | 1 | Shared application service layer | Complete |
 | 2 | Versioned migrations, AI/production tables, jobs reuse | Complete — migration v1 applied |
 | 3 | REST API and production orchestration | Complete |
-| 4 | MCP server with bearer auth, 60 tools | Complete and client-tested; OAuth proxy is a deployment step |
+| 4 | MCP servers: studio 8020 + OpenCode 8030, scoped bearer auth | Complete and client-tested; OAuth proxy is a deployment step |
 | 5 | OpenAI AI Director (Responses API) | Implemented; live calls blocked by missing key/model; mocked test passes |
 | 6 | Persistent project/character/episode memory and approvals | Complete |
 | 7 | Provider abstraction and registry | Complete; cloud video interface-only |

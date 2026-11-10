@@ -2,8 +2,9 @@
 
 ## What it is
 
-Four MCP tools added to the Cartoon Studio MCP server so ChatGPT can ask a local
-OpenCode agent to inspect code, create workflows, run tests, and make changes.
+Four MCP tools run as a **separate MCP server** so ChatGPT can ask a local
+OpenCode agent to inspect code, create workflows, run tests, and make changes,
+without mixing them into the Cartoon Studio tool list.
 
 The bridge calls the **OpenCode HTTP API** through the `opencode api` command, so it
 uses the same running service and authentication as the TUI. No second OpenCode
@@ -11,11 +12,55 @@ instance is started.
 
 ```text
 ChatGPT
-  └─ MCP connector (8020)
-       ├─ 56 Cartoon Studio tools
-       └─ 4 OpenCode tools
-            └─ opencode api → local OpenCode service → agent session in D:\bro
+  ├─ Studio connector (8020 /mcp)   → 56 Cartoon Studio tools
+  └─ OpenCode connector (8030 /mcp) → 4 OpenCode tools
+                                        └─ opencode api → local agent in D:\bro
 ```
+
+## Server profiles
+
+The MCP server supports three profiles:
+
+| Profile | Tools | Default port | Purpose |
+|---|---|---|---|
+| `studio` | 56 studio tools | 8020 | Cartoon Studio production |
+| `opencode` | 4 OpenCode tools | 8030 | Agent collaboration |
+| `all` | 60 tools | 8020 | Backwards-compatible single connector |
+
+Run separately:
+
+```powershell
+.\scripts\start_mcp.bat           # studio, 8020
+.\scripts\start_mcp_opencode.bat  # opencode, 8030
+```
+
+Direct:
+
+```powershell
+backend\.venv\Scripts\python.exe backend\run_mcp.py --profile studio --port 8020
+backend\.venv\Scripts\python.exe backend\run_mcp.py --profile opencode --port 8030 `
+  --public-url http://127.0.0.1:8030
+```
+
+Each profile has its own token scope:
+
+- `studio` and `all` require `production`.
+- `opencode` requires `opencode`.
+
+Create a token for each:
+
+```powershell
+# Studio
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8010/api/v1/mcp/tokens `
+  -ContentType "application/json" -Body '{"name":"studio","scopes":"production"}'
+
+# OpenCode bridge
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8010/api/v1/mcp/tokens `
+  -ContentType "application/json" -Body '{"name":"opencode","scopes":"opencode"}'
+```
+
+A `production` token cannot connect to 8030, and an `opencode` token cannot connect
+to 8020. That is deliberate isolation.
 
 ## Tools
 
@@ -67,8 +112,17 @@ account can run.
 
 ## Using it from ChatGPT
 
-The tools are part of the existing Cartoon Studio MCP connector. Once the
-connector is connected, ask:
+Add a **second** custom MCP connector:
+
+| Field | Value |
+|---|---|
+| Name | `OpenCode Bridge` |
+| URL (local bearer client) | `http://127.0.0.1:8030/mcp` |
+| URL (ChatGPT web) | an HTTPS tunnel to `8030`, ending in `/mcp` |
+| Authentication | bearer-capable client, or temporary no-auth tunnel |
+
+The tools are **not** in the studio connector. Once the OpenCode connector is
+connected, ask:
 
 ```text
 Use opencode_ask to inspect D:\bro\CartoonStudio\workflows and add a test for
@@ -84,16 +138,22 @@ If a result says `waiting_for_permission`, read `pending_permissions`, then call
 `opencode_permission` with the request id. Use `reject` unless you understand the
 action. `always` creates a durable project rule.
 
+The built-in **Connect ChatGPT** button in AI Director still exposes the studio
+server (8020) only. For the OpenCode connector, use a bearer-capable client or a
+separate tunnel to 8030.
+
 ## Using it from a shell
 
-Start MCP in bearer mode, create a token, and use `scripts/mcp_call.py`:
+Start the OpenCode MCP server, create an `opencode` token, and point the CLI at
+8030:
 
 ```powershell
-cd D:\bro\CartoonStudio
-$body = '{"name":"opencode-cli","scopes":"production"}'
+.\scripts\start_mcp_opencode.bat
+$body = '{"name":"opencode-cli","scopes":"opencode"}'
 $resp = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8010/api/v1/mcp/tokens `
   -ContentType "application/json" -Body $body
 $env:MCP_TOKEN = $resp.token
+$env:MCP_URL = 'http://127.0.0.1:8030/mcp'
 ```
 
 ```powershell

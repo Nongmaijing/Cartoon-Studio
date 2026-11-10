@@ -40,6 +40,21 @@ See **`docs/integration/MCP_TOOLS.md` → Calling these tools from Desktop Comma
 shell** for token creation, examples and safety rules. Use this instead of exposing port
 8020 with `MCP_AUTH_MODE=none` when ChatGPT only needs a few studio actions.
 
+### OpenCode bridge connector
+
+The agent-collaboration tools are a **separate MCP server** on port 8030:
+
+```powershell
+D:\bro\CartoonStudio\scripts\start_mcp_opencode.bat
+```
+
+Add a second ChatGPT connector pointing at `http://127.0.0.1:8030/mcp` (or an
+HTTPS tunnel to 8030 for ChatGPT web). It uses tokens with scope `opencode`,
+not `production`. See `docs/integration/OPENCODE_BRIDGE.md`.
+
+The built-in **Connect ChatGPT** button still exposes only the studio server on
+8020.
+
 ---
 
 ## Fastest path — one-click from the Cartoon Studio UI
@@ -189,7 +204,7 @@ Then:
 
 1. Acknowledge the risk warning.
 2. Select **Create as a plugin** / **Create**.
-3. Run **Scan Tools** and wait for the 60 tools to appear.
+3. Run **Scan Tools** and wait for the 56 studio tools to appear.
 4. Install/enable the plugin for your account or workspace.
 
 ### 6. Use it in a chat

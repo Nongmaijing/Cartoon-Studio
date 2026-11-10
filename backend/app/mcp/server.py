@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 from urllib.parse import urlparse
 
@@ -200,7 +201,12 @@ def _transport_security(public_url: str, allowed_hosts: list[str], allowed_origi
     )
 
 
-def create_mcp_server() -> FastMCP:
+def create_mcp_server(profile: str | None = None) -> FastMCP:
+    profile = (profile or os.environ.get("MCP_PROFILE") or "all").strip().lower()
+    if profile not in ("all", "studio", "opencode"):
+        raise RuntimeError("MCP_PROFILE must be 'all', 'studio' or 'opencode'.")
+    include_studio = profile in ("all", "studio")
+    include_opencode = profile in ("all", "opencode")
     settings = mcp_settings()
     public_url = settings.get("public_url") or base_url().replace("8010", str(settings["port"]))
     auth_mode = str(settings.get("auth_mode") or "bearer").lower()
@@ -217,7 +223,7 @@ def create_mcp_server() -> FastMCP:
         auth = AuthSettings(
             issuer_url=public_url,
             resource_server_url=public_url,
-            required_scopes=["production"],
+            required_scopes=["opencode"] if profile == "opencode" else ["production"],
             validate_token_resource=False,
         )
         auth_kwargs = {"token_verifier": CartoonTokenVerifier(), "auth": auth}
@@ -228,13 +234,25 @@ def create_mcp_server() -> FastMCP:
             "Use only behind a private tunnel/allowlist and restore bearer auth afterwards."
         )
 
-    mcp = FastMCP(
-        "cartoon-studio",
-        instructions=(
+    server_name = "opencode-bridge" if profile == "opencode" else "cartoon-studio"
+    instructions = (
+        "OpenCode agent bridge. Use opencode_ask to start a coding-agent task, "
+        "opencode_task to poll it, and opencode_permission to answer permission requests."
+        if profile == "opencode"
+        else (
             "Cartoon Studio production controller. Use the tools to inspect and manage projects, "
             "characters, episodes, scenes, generation jobs, production runs and final renders. "
             "Expensive or destructive tools require confirm=true."
-        ),
+            + (
+                " opencode_ask/opencode_task let you delegate code work to a local OpenCode agent."
+                if include_opencode
+                else ""
+            )
+        )
+    )
+    mcp = FastMCP(
+        server_name,
+        instructions=instructions,
         host=settings["host"],
         port=int(settings["port"]),
         streamable_http_path="/mcp",
@@ -246,59 +264,62 @@ def create_mcp_server() -> FastMCP:
         ),
         **auth_kwargs,
     )
-    for tool in tool_registry.list_tools():
-        mcp.add_tool(_make_tool_function(tool), name=tool.name, description=tool.description)
-    for function in (opencode_ask, opencode_task, opencode_sessions, opencode_permission):
-        mcp.add_tool(function, name=function.__name__, description=(function.__doc__ or "").strip())
+    if include_studio:
+        for tool in tool_registry.list_tools():
+            mcp.add_tool(_make_tool_function(tool), name=tool.name, description=tool.description)
+    if include_opencode:
+        for function in (opencode_ask, opencode_task, opencode_sessions, opencode_permission):
+            mcp.add_tool(function, name=function.__name__, description=(function.__doc__ or "").strip())
+    tool_count = (len(tool_registry.list_tools()) if include_studio else 0) + (4 if include_opencode else 0)
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health(request: Request) -> JSONResponse:  # noqa: ARG001
         return JSONResponse(
             {
                 "status": "ok",
-                "server": "cartoon-studio-mcp",
-                "tools": len(tool_registry.list_tools()) + 4,
+                "server": f"{server_name}-mcp",
+                "profile": profile,
+                "tools": tool_count,
                 "auth": auth_mode,
             }
         )
 
-    @mcp.resource("cartoon://projects", description="List Cartoon Studio projects")
-    async def projects_resource() -> str:
-        import json
+    if include_studio:
 
-        return json.dumps(project_service.list_projects(), ensure_ascii=False)
+        @mcp.resource("cartoon://projects", description="List Cartoon Studio projects")
+        async def projects_resource() -> str:
+            import json
 
-    @mcp.resource("cartoon://projects/{project_id}", description="Project details")
-    async def project_resource(project_id: str) -> str:
-        import json
+            return json.dumps(project_service.list_projects(), ensure_ascii=False)
 
-        return json.dumps(project_service.get_project(project_id), ensure_ascii=False)
+        @mcp.resource("cartoon://projects/{project_id}", description="Project details")
+        async def project_resource(project_id: str) -> str:
+            import json
 
-    @mcp.resource("cartoon://episodes/{episode_id}", description="Episode details")
-    async def episode_resource(episode_id: str) -> str:
-        import json
+            return json.dumps(project_service.get_project(project_id), ensure_ascii=False)
 
-        return json.dumps(episode_service.get_episode(episode_id), ensure_ascii=False)
+        @mcp.resource("cartoon://episodes/{episode_id}", description="Episode details")
+        async def episode_resource(episode_id: str) -> str:
+            import json
 
-    @mcp.resource("cartoon://production/{run_id}", description="Production run status")
-    async def production_resource(run_id: str) -> str:
-        import json
+            return json.dumps(episode_service.get_episode(episode_id), ensure_ascii=False)
 
-        return json.dumps(production_service.get_status(run_id), ensure_ascii=False)
+        @mcp.resource("cartoon://production/{run_id}", description="Production run status")
+        async def production_resource(run_id: str) -> str:
+            import json
 
-    @mcp.prompt("plan_episode", description="Plan a production from a premise")
-    def plan_episode(project_id: str, premise: str) -> str:
-        return (
-            "Inspect the project and approved characters, develop a short children's story, "
-            "script and storyboard, then present the plan and wait for confirmation before "
-            f"starting expensive generation. Project: {project_id}. Premise: {premise}"
-        )
+            return json.dumps(production_service.get_status(run_id), ensure_ascii=False)
 
-    @mcp.prompt("review_scene", description="Review a scene for quality and continuity")
-    def review_scene(scene_id: str) -> str:
-        return f"Review scene {scene_id} for character consistency, defects and approval status."
+        @mcp.prompt("plan_episode", description="Plan a production from a premise")
+        def plan_episode(project_id: str, premise: str) -> str:
+            return (
+                "Inspect the project and approved characters, develop a short children's story, "
+                "script and storyboard, then present the plan and wait for confirmation before "
+                f"starting expensive generation. Project: {project_id}. Premise: {premise}"
+            )
+
+        @mcp.prompt("review_scene", description="Review a scene for quality and continuity")
+        def review_scene(scene_id: str) -> str:
+            return f"Review scene {scene_id} for character consistency, defects and approval status."
 
     return mcp
-
-
-mcp = create_mcp_server()

@@ -1,19 +1,32 @@
 # MCP Tools
 
-The MCP server exposes the same 56 studio tools as the AI Director registry, plus
-4 OpenCode bridge tools (`opencode_ask`, `opencode_task`, `opencode_sessions`,
-`opencode_permission`) — 60 tools total.
+The MCP server has separate profiles:
+
+| Profile | Port | Tools |
+|---|---|---|
+| `studio` | 8020 | 56 Cartoon Studio tools |
+| `opencode` | 8030 | 4 OpenCode bridge tools |
+| `all` | 8020 | 60 tools (single-connector compatibility) |
+
+The studio tools are the same ones exposed to the AI Director registry.
 
 ## OpenCode bridge
 
-These tools let ChatGPT ask a local OpenCode agent to inspect code, create
-workflows, run tests, and make changes through the OpenCode HTTP API. See
+The `opencode` profile lets ChatGPT ask a local OpenCode agent to inspect code,
+create workflows, run tests, and make changes through the OpenCode HTTP API. See
 `docs/integration/OPENCODE_BRIDGE.md` for models, permissions and examples.
 
 - `opencode_ask` — start a task; optionally wait up to 120 seconds.
 - `opencode_task` — poll a task and read the assistant text/tools.
 - `opencode_sessions` — list recent sessions.
 - `opencode_permission` — answer a pending permission request (`once`, `always`, `reject`).
+
+Start them separately:
+
+```powershell
+.\scripts\start_mcp.bat           # studio, 8020
+.\scripts\start_mcp_opencode.bat  # opencode, 8030
+```
 
 ## Calling these tools from Desktop Commander or a shell
 
