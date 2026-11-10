@@ -25,6 +25,21 @@ Enterprise / Edu** feature on ChatGPT web. Plan availability and UI labels can
 change. If your account does not show "Add custom MCP server", your plan or
 workspace policy does not allow it.
 
+## If you are using Desktop Commander
+
+Desktop Commander gives ChatGPT a shell, not the studio tool catalog. To keep the MCP
+server local and authenticated, create an MCP token and call tools through
+`scripts/mcp_call.py`:
+
+```powershell
+D:\bro\CartoonStudio\backend\.venv\Scripts\python.exe `
+  D:\bro\CartoonStudio\scripts\mcp_call.py call list_projects "{}"
+```
+
+See **`docs/integration/MCP_TOOLS.md` → Calling these tools from Desktop Commander or a
+shell** for token creation, examples and safety rules. Use this instead of exposing port
+8020 with `MCP_AUTH_MODE=none` when ChatGPT only needs a few studio actions.
+
 ---
 
 ## Fastest path — one-click from the Cartoon Studio UI

@@ -2,6 +2,89 @@
 
 The MCP server exposes the same 56 tools as the AI Director registry.
 
+## Calling these tools from Desktop Commander or a shell
+
+Desktop Commander is a **shell**, not a studio client: it does not merge the Cartoon
+Studio tool catalog into ChatGPT. To let ChatGPT use the studio tools while keeping the
+MCP server local and bearer-authenticated, use the included wrapper:
+
+```text
+scripts/mcp_call.py
+```
+
+It opens a streamable-HTTP MCP session, authenticates with `MCP_TOKEN`, calls one tool,
+and prints the result. No public tunnel is required.
+
+### 1. Create a token
+
+```powershell
+$body = '{"name":"desktop-commander","scopes":"production"}'
+$resp = Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8010/api/v1/mcp/tokens `
+  -ContentType "application/json" -Body $body
+$resp.token      # shown once
+$resp.id         # revoke later with /tokens/{id}/revoke
+```
+
+Add it to `D:\bro\CartoonStudio\.env`:
+
+```env
+MCP_URL=http://127.0.0.1:8020/mcp
+MCP_TOKEN=the-raw-token
+```
+
+Restart the backend only if you want the backend's own status view to show the token;
+the wrapper reads `.env` directly.
+
+### 2. Use it
+
+```powershell
+cd D:\bro\CartoonStudio
+.\backend\.venv\Scripts\python.exe .\scripts\mcp_call.py tools
+.\backend\.venv\Scripts\python.exe .\scripts\mcp_call.py call list_projects "{}"
+.\backend\.venv\Scripts\python.exe .\scripts\mcp_call.py call get_episode_status "{\"episode_id\":\"...\"}"
+```
+
+The first argument can also be the tool name directly:
+
+```powershell
+.\backend\.venv\Scripts\python.exe .\scripts\mcp_call.py list_projects "{}"
+```
+
+Expensive or destructive tools require `confirm=true` in the arguments:
+
+```powershell
+.\backend\.venv\Scripts\python.exe .\scripts\mcp_call.py call generate_scene_image "{\"scene_id\":\"...\",\"confirm\":true}"
+```
+
+### 3. Ask ChatGPT to use it
+
+In a ChatGPT chat with Desktop Commander enabled:
+
+```text
+Run this exact command in D:\bro\CartoonStudio and show me the output:
+backend\.venv\Scripts\python.exe scripts\mcp_call.py call list_projects "{}"
+```
+
+For studio work, always prefer `scripts/mcp_call.py` over raw shell commands. Use shell
+only for things the MCP tools do not cover.
+
+### 4. Safety
+
+- The token is a production credential. Keep it in `.env`; never paste it into a chat.
+- Restrict Desktop Commander's `allowedDirectories` to `D:\bro`.
+- Review every queued generation; the wrapper reports the same job IDs as the UI.
+- Revoke unused tokens with `POST /api/v1/mcp/tokens/{id}/revoke`.
+- Do not expose port 8020 publicly with `MCP_AUTH_MODE=none` unless you are actively
+  testing and will disconnect immediately.
+
+## Direct ChatGPT connector instead
+
+If you want ChatGPT to see the tools natively (without the wrapper), use the built-in
+**AI Director → Connect ChatGPT** flow. It starts a temporary tunnel in no-auth mode, so
+only use it for a short session and click **Disconnect & secure** afterwards. See
+`docs/integration/CHATGPT_CONNECTION.md`.
+
 ## Projects
 - `list_projects`
 - `create_project`
