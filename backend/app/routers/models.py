@@ -4,8 +4,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from ..schemas import ModelDownloadRequest
 from ..schemas_ai import ModelConfigUpdate
-from ..services import model_config_service
+from ..services import model_config_service, model_download_service
 from ..services.errors import ServiceError
 
 router = APIRouter(prefix="/api/v1/models", tags=["models"])
@@ -37,3 +38,35 @@ async def update_config(payload: ModelConfigUpdate) -> dict[str, Any]:
 async def recommendations() -> dict[str, Any]:
     data = await model_config_service.catalog()
     return {"recommendations": data["recommendations"], "note": data["note"]}
+
+
+@router.get("/downloads")
+async def downloads() -> list[dict[str, Any]]:
+    return model_download_service.list_downloads()
+
+
+@router.post("/downloads", status_code=202)
+async def start_download(payload: ModelDownloadRequest) -> dict[str, Any]:
+    try:
+        return await model_download_service.start_download(
+            payload.recommendation,
+            accept_license=payload.accept_license,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/downloads/{download_id}")
+async def download_status(download_id: str) -> dict[str, Any]:
+    state = model_download_service.get_download(download_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Download not found.")
+    return state
+
+
+@router.post("/downloads/{download_id}/cancel")
+async def cancel_download(download_id: str) -> dict[str, Any]:
+    state = model_download_service.cancel_download(download_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Download not found.")
+    return state

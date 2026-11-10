@@ -19,6 +19,7 @@ import type {
   MediaItem,
   ModelCatalog,
   ModelConfig,
+  ModelDownload,
   ModelLists,
   ChatGPTTunnelStatus,
   ProductionOverview,
@@ -458,6 +459,14 @@ export const api = {
     request<{ recommendations: ModelCatalog["recommendations"]; note: string }>(
       "/v1/models/recommendations"
     ),
+  modelDownloads: () => request<ModelDownload[]>("/v1/models/downloads"),
+  startModelDownload: (recommendation: string, acceptLicense: boolean) =>
+    request<ModelDownload>("/v1/models/downloads", {
+      method: "POST",
+      body: JSON.stringify({ recommendation, accept_license: acceptLicense }),
+    }),
+  cancelModelDownload: (id: string) =>
+    request<ModelDownload>(`/v1/models/downloads/${id}/cancel`, { method: "POST" }),
 
   aiHealth: () => request<{ status: string; openai: Record<string, any>; llm?: Record<string, any>; model: string | null }>("/v1/ai/health"),
   aiTools: () =>

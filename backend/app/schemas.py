@@ -238,6 +238,11 @@ class ConsistencyCheckRequest(BaseModel):
     model: str | None = None
 
 
+class ModelDownloadRequest(BaseModel):
+    recommendation: str = Field(min_length=1, max_length=120)
+    accept_license: bool = False
+
+
 class SceneCreate(BaseModel):
     project_id: str
     name: str = Field(min_length=1, max_length=120)

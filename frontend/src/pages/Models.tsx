@@ -5,8 +5,10 @@ import type {
   Asset,
   ModelCatalog,
   ModelConfig,
+  ModelDownload,
   ModelFileEntry,
   ModelLists,
+  ModelRecommendation,
   ProductionRegistry,
   QueueState,
   WorkflowEntry,
@@ -51,6 +53,12 @@ function statusChip(status: string): string {
   return "pose";
 }
 
+function formatBytes(value: number): string {
+  if (!value) return "0 MB";
+  if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(2)} GB`;
+  return `${(value / 1024 ** 2).toFixed(0)} MB`;
+}
+
 export default function Models() {
   const { selectedId } = useProject();
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
@@ -68,6 +76,11 @@ export default function Models() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [downloads, setDownloads] = useState<ModelDownload[]>([]);
+  const [downloadTarget, setDownloadTarget] = useState<ModelRecommendation | null>(null);
+  const [licenseAccepted, setLicenseAccepted] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,6 +117,82 @@ export default function Models() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const refreshDownloads = useCallback(async () => {
+    try {
+      setDownloads(await api.modelDownloads());
+    } catch {
+      /* the catalog is still usable if download state is unavailable */
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshDownloads();
+  }, [refreshDownloads]);
+
+  const activeDownload = downloads.some((item) =>
+    ["queued", "downloading", "verifying"].includes(item.status)
+  );
+
+  useEffect(() => {
+    if (!activeDownload) return;
+    let disposed = false;
+    const tick = async () => {
+      try {
+        const list = await api.modelDownloads();
+        if (disposed) return;
+        setDownloads(list);
+        if (!list.some((item) => ["queued", "downloading", "verifying"].includes(item.status))) {
+          load();
+        }
+      } catch {
+        /* keep polling; transient network errors should not stop a download */
+      }
+    };
+    const timer = window.setInterval(tick, 2000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [activeDownload, load]);
+
+  const downloadFor = (name: string): ModelDownload | undefined => {
+    const matches = downloads.filter((item) => item.recommendation === name);
+    return (
+      matches.find((item) => ["queued", "downloading", "verifying"].includes(item.status)) ||
+      matches[0]
+    );
+  };
+
+  const beginDownload = (item: ModelRecommendation) => {
+    setDownloadTarget(item);
+    setLicenseAccepted(false);
+    setDownloadError("");
+  };
+
+  const submitDownload = async () => {
+    if (!downloadTarget || !licenseAccepted) return;
+    setDownloadBusy(true);
+    setDownloadError("");
+    try {
+      const state = await api.startModelDownload(downloadTarget.name, licenseAccepted);
+      setDownloads((current) => [state, ...current.filter((item) => item.id !== state.id)]);
+      setDownloadTarget(null);
+    } catch (exc) {
+      setDownloadError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setDownloadBusy(false);
+    }
+  };
+
+  const cancelDownload = async (id: string) => {
+    try {
+      const state = await api.cancelModelDownload(id);
+      setDownloads((current) => current.map((item) => (item.id === state.id ? state : item)));
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    }
+  };
 
   const checkpoints = catalog?.models.checkpoints || [];
   const vaes = catalog?.models.vae || [];
@@ -644,7 +733,10 @@ export default function Models() {
             <div className="panel-head">
               <div>
                 <h2>Recommended SDXL Models</h2>
-                <div className="panel-sub">No download button. Review license, size and VRAM, then install manually if appropriate.</div>
+                <div className="panel-sub">
+                  Whitelist-only downloads. Review the licence, confirm it, and the file is checksum-verified
+                  before install. Files go to the first configured model directory.
+                </div>
               </div>
             </div>
             <div style={{ overflow: "auto" }}>
@@ -679,9 +771,59 @@ export default function Models() {
                       <td className="tiny">{item.vram}</td>
                       <td className="tiny">{item.cartoon_suitability}</td>
                       <td>
-                        <span className={`chip ${item.installed ? "exp" : ""}`}>
-                          {item.installed ? `installed: ${item.installed_file}` : "not installed"}
-                        </span>
+                        {item.installed ? (
+                          <span className="chip exp">installed: {item.installed_file}</span>
+                        ) : (() => {
+                          const download = downloadFor(item.name);
+                          if (download && ["queued", "downloading", "verifying"].includes(download.status)) {
+                            return (
+                              <div style={{ minWidth: 160 }}>
+                                <div className="tiny">
+                                  {download.status} · {download.percent.toFixed(1)}%
+                                </div>
+                                <div className="progress" style={{ margin: "4px 0" }}>
+                                  <span style={{ width: `${Math.min(100, download.percent)}%` }} />
+                                </div>
+                                <div className="tiny muted">
+                                  {formatBytes(download.bytes_downloaded)} / {formatBytes(download.bytes_total)}
+                                  {download.speed_mbps > 0 ? ` · ${download.speed_mbps.toFixed(1)} MB/s` : ""}
+                                </div>
+                                <button
+                                  className="btn sm ghost"
+                                  style={{ marginTop: 4 }}
+                                  onClick={() => cancelDownload(download.id)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            );
+                          }
+                          if (download?.status === "failed") {
+                            return (
+                              <div>
+                                <span className="chip pose">failed</span>
+                                <div className="tiny" style={{ color: "var(--danger)", marginTop: 4 }}>
+                                  {download.error}
+                                </div>
+                                <button className="btn sm ghost" style={{ marginTop: 4 }} onClick={() => beginDownload(item)}>
+                                  Retry
+                                </button>
+                              </div>
+                            );
+                          }
+                          if (item.download?.available) {
+                            return (
+                              <button className="btn sm" onClick={() => beginDownload(item)}>
+                                Download
+                              </button>
+                            );
+                          }
+                          return (
+                            <span className="chip" title={item.download?.reason}>
+                              manual only
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}
@@ -729,6 +871,94 @@ export default function Models() {
             )}
           </section>
         </>
+      )}
+
+      {downloadTarget && (
+        <div className="modal-backdrop" onClick={() => !downloadBusy && setDownloadTarget(null)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 640 }}>
+            <div className="panel-head">
+              <div>
+                <h2>Download {downloadTarget.name}</h2>
+                <div className="panel-sub">
+                  Whitelisted source, licence confirmation required, SHA256 verified after download.
+                </div>
+              </div>
+              <button className="btn sm ghost" onClick={() => setDownloadTarget(null)} disabled={downloadBusy}>
+                Close
+              </button>
+            </div>
+            {downloadError && <Alert kind="error">{downloadError}</Alert>}
+            <table className="table">
+              <tbody>
+                <tr>
+                  <td className="tiny muted">Source</td>
+                  <td className="tiny wrap">
+                    {downloadTarget.source.startsWith("http") ? (
+                      <a className="link" href={downloadTarget.source} target="_blank" rel="noreferrer">
+                        {downloadTarget.source}
+                      </a>
+                    ) : (
+                      downloadTarget.source
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="tiny muted">Licence</td>
+                  <td className="tiny">
+                    {downloadTarget.download?.license || downloadTarget.license}
+                    <div className="muted">{downloadTarget.license_notes}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="tiny muted">File</td>
+                  <td className="tiny mono">{downloadTarget.download?.filename}</td>
+                </tr>
+                <tr>
+                  <td className="tiny muted">Size</td>
+                  <td className="tiny">
+                    {downloadTarget.download?.size_gb ? `${downloadTarget.download.size_gb} GB` : downloadTarget.download_size}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="tiny muted">Destination</td>
+                  <td className="tiny mono wrap">
+                    {`${catalog?.model_dirs?.[0] || ""}\\${downloadTarget.download?.category || downloadTarget.category}\\${downloadTarget.download?.filename || ""}`}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="tiny muted">SHA256</td>
+                  <td className="tiny mono wrap">{downloadTarget.download?.sha256}</td>
+                </tr>
+              </tbody>
+            </table>
+            {downloadTarget.download?.token_env && !downloadTarget.download.token_configured && (
+              <Alert kind="warn">
+                This source may require an account token. If the download is refused, set{" "}
+                <span className="mono">{downloadTarget.download.token_env}</span> in the backend environment.
+              </Alert>
+            )}
+            <label className="tiny" style={{ display: "flex", gap: 8, alignItems: "flex-start", margin: "12px 0" }}>
+              <input
+                type="checkbox"
+                checked={licenseAccepted}
+                onChange={(event) => setLicenseAccepted(event.target.checked)}
+                style={{ marginTop: 2 }}
+              />
+              <span>
+                I have reviewed this model’s licence and usage restrictions, and I accept responsibility
+                for using it in production.
+              </span>
+            </label>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="btn ghost" onClick={() => setDownloadTarget(null)} disabled={downloadBusy}>
+                Cancel
+              </button>
+              <button className="btn" onClick={submitDownload} disabled={!licenseAccepted || downloadBusy}>
+                {downloadBusy ? "Starting…" : "Download and verify"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {catalog?.note && <div className="tiny muted" style={{ marginTop: 12 }}>{catalog.note}</div>}

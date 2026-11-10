@@ -1,6 +1,6 @@
 # Model Compatibility and Candidate Report
 
-This is a current, machine-specific report. **No model is downloaded automatically.** Candidate rows are research recommendations; verify the exact checkpoint, license and current version on the official model page before installation.
+This is a current, machine-specific report. Candidate rows are research recommendations; verify the exact checkpoint, licence and current version on the official model page before installation. Model Studio can download a small whitelist after explicit licence confirmation and SHA256 verification; nothing is fetched implicitly.
 
 ## Installed inventory
 

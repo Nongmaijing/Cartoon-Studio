@@ -8,6 +8,7 @@ from typing import Any
 from ..comfy.client import ComfyClient, ComfyError
 from ..config import _deep_merge, default_config, load_config, save_config
 from ..workflows.registry import find_workflow
+from . import model_download_service
 from .engines import combo_options
 
 MODEL_CATEGORIES = ("checkpoints", "vae", "loras", "controlnet", "upscale_models")
@@ -87,7 +88,7 @@ RECOMMENDATIONS: list[dict[str, Any]] = [
         "name": "Blue Pencil XL",
         "filename_hints": ["bluepencil", "blue_pencil", "blue-pencil"],
         "category": "checkpoints",
-        "source": "https://civitai.com/models/119544 (verify current version and license on the model page)",
+        "source": "https://civitai.com/models/119012 (verify current version and license on the model page)",
         "architecture": "SDXL illustration fine-tune",
         "intended_use": "Line-art and illustration-oriented SDXL model; useful for clean outlines and concept art.",
         "license": "CreativeML Open RAIL++-M (verify the exact version on the model page)",
@@ -734,6 +735,7 @@ async def catalog() -> dict[str, Any]:
         record["installed"] = bool(matches)
         record["installed_file"] = matches[0]["name"] if matches else None
         record["status"] = "installed" if matches else "not_installed"
+        record["download"] = model_download_service.describe(item["name"])
         recommendations.append(record)
 
     return {
@@ -744,5 +746,8 @@ async def catalog() -> dict[str, Any]:
         "missing": _missing_dependencies(config, models, entries, options, comfy),
         "recommendations": recommendations,
         "model_dirs": [str(path) for path in _model_dirs(config)],
-        "note": "Cartoon Studio never downloads models. Install files manually and refresh this catalog.",
+        "note": (
+            "Nothing downloads automatically. Model Studio only downloads a vetted source after "
+            "you confirm its licence and storage location."
+        ),
     }

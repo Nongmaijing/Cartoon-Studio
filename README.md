@@ -275,7 +275,7 @@ A new **Model Studio** page (`/models`) extends the existing model configuration
 - Scans the configured ComfyUI model directories for checkpoints, VAEs, LoRAs, ControlNet and upscalers.
 - Reads safetensors metadata where available, then falls back to filename/size heuristics. Architecture detection always reports its confidence and source.
 - Shows file size, ComfyUI installation status, compatible engines, detection details and local path.
-- Reports missing dependencies and never downloads a model.
+- Reports missing dependencies. Vetted SDXL recommendations expose a download button: it requires an explicit licence confirmation, is whitelist-only, resumes partial files, verifies size and SHA256, and installs into the first configured model directory. Nothing is fetched without that confirmation.
 - Lets the operator choose the default architecture, SDXL/SD 1.5 checkpoints, VAE, LoRA and strength, workflow per task, and 6 GB-safe resolution/sampling presets.
 - Displays the active model, architecture, workflow, GPU name, VRAM usage, ComfyUI low-VRAM/attention flags, queue status and recent image outputs.
 - Character Studio adds optional per-character model overrides (architecture, checkpoint, VAE, LoRA, reference strength) and turnaround/expression/pose sheet buttons.
@@ -706,8 +706,8 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 
 ## Safety rules enforced by the design
 
-- ComfyUI configuration, models and workflows are **never modified**.
-- Nothing is downloaded automatically. Missing models/nodes are reported, not fetched.
+- ComfyUI configuration and workflows are **never modified**. Model files are written only to a configured model directory after an explicit, licence-confirmed download.
+- Nothing is downloaded implicitly. The only fetch path is Model Studio's licence-gated download button for whitelisted sources, which verifies size and SHA256 before install.
 - Project data, workflows and outputs live under `CartoonStudio`, separate from ComfyUI.
 - Output filenames are unique; existing media is never silently overwritten.
 - Generated WAV files are moved into the project output tree with unique names; regenerations create new assets.

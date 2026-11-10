@@ -347,6 +347,36 @@ export interface ModelRecommendation {
   installed: boolean;
   installed_file: string | null;
   status: string;
+  download: {
+    available: boolean;
+    provider?: string;
+    filename?: string;
+    category?: string;
+    size_bytes?: number;
+    size_gb?: number;
+    sha256?: string;
+    license?: string;
+    token_configured?: boolean;
+    token_env?: string | null;
+    reason?: string;
+  };
+}
+
+export interface ModelDownload {
+  id: string;
+  recommendation: string;
+  filename: string;
+  category: string;
+  status: "queued" | "downloading" | "verifying" | "completed" | "failed" | "cancelled";
+  bytes_downloaded: number;
+  bytes_total: number;
+  percent: number;
+  speed_mbps: number;
+  path: string;
+  error: string | null;
+  message: string;
+  started_at: number | null;
+  finished_at: number | null;
 }
 
 export interface ModelConfig {

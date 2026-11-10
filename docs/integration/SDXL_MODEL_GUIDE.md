@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Cartoon Studio now supports SDXL character and background generation while keeping SD 1.5 available as a lightweight fallback. This guide covers model discovery, manual installation, licensing, 6 GB VRAM settings, character consistency, and the current test status.
+Cartoon Studio now supports SDXL character and background generation while keeping SD 1.5 available as a lightweight fallback. This guide covers model discovery, installation, licensing, 6 GB VRAM settings, character consistency, and the current test status.
 
-**No model is downloaded automatically.** Cartoon Studio only scans local model directories and reads small safetensors headers to report architecture.
+**Nothing downloads implicitly.** Cartoon Studio scans local model directories for installed files, and Model Studio offers an opt-in download button for a small whitelist of reviewed SDXL sources. A download starts only after the operator confirms the licence and chooses to proceed; the file is size- and SHA256-verified before it is installed.
 
 ---
 
@@ -45,7 +45,48 @@ ComfyUI 0.44.2, RTX 4050 Laptop, 6 GB VRAM, 32 GB RAM.
 5. Select the checkpoint and VAE, then **Save model config**.
 6. The active model line should switch from SD 1.5 to SDXL.
 
-Cartoon Studio never writes to ComfyUI model folders and never downloads or installs weights.
+Manual installation is always available. In addition, Model Studio can download a whitelisted
+source after explicit licence confirmation; it writes only to the first configured model
+directory and never overwrites an existing file.
+
+### Download buttons in Model Studio
+
+The recommendation table now has a **Download** button for reviewed sources:
+
+| Recommendation | Source | File | Licence |
+|---|---|---|---|
+| SDXL Base 1.0 | `stabilityai/stable-diffusion-xl-base-1.0` | `sd_xl_base_1.0.safetensors` (6.46 GB) | CreativeML Open RAIL++-M |
+| DreamShaper XL | Civitai 112902, alpha2 (xl1.0) | `DreamShaperXL1.0Alpha2_fixedVae_half_00001_.safetensors` (6.46 GB) | CreativeML Open RAIL++-M |
+| Blue Pencil XL | Civitai 119012, v7.0.0 | `blue_pencil-XL-v7.0.0.safetensors` (6.46 GB) | CreativeML Open RAIL++-M |
+| Juggernaut XL | Civitai 133005, Ragnarok | `JuggernautXL_Ragnarok_ByRunDiffusion.safetensors` (6.62 GB) | CreativeML Open RAIL++-M |
+
+Behaviour:
+
+- The client can only name a whitelisted recommendation; arbitrary URLs are rejected.
+- `accept_license` must be true. The UI shows the licence and requires a checkbox.
+- Downloads go to the first configured model directory (on this machine
+  `D:\bro\ComfyUI\Models\<category>`), never to the ComfyUI install itself.
+- Partial downloads use `.part` files and resume with HTTP Range.
+- The completed file is checked against the known byte size and SHA256; a mismatch is
+  quarantined as `.bad` and reported.
+- Existing files are never overwritten.
+- Progress and speed are shown in the table; cancellation keeps the partial file for resume.
+- Civitai may require `CIVITAI_TOKEN`; Hugging Face gated repos require `HF_TOKEN`.
+  The UI warns when no token is configured.
+- The cartoon-style LoRA row remains **manual only**, because no single specific LoRA is
+  bundled or vetted.
+
+API:
+
+```text
+GET  /api/v1/models/downloads
+POST /api/v1/models/downloads              {"recommendation": "...", "accept_license": true}
+GET  /api/v1/models/downloads/{id}
+POST /api/v1/models/downloads/{id}/cancel
+```
+
+After completion, refresh the catalog. ComfyUI rescans model folders on its next request; no
+restart is required.
 
 ### Installing DreamShaper XL 1.0 (actual procedure)
 
