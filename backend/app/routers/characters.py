@@ -16,10 +16,11 @@ from ..schemas import (
     CharacterModelSettings,
     CharacterSheetRequest,
     CharacterUpdate,
+    ConsistencyCheckRequest,
     MediaAttach,
     VoiceAssignment,
 )
-from ..services import character_sheet_service
+from ..services import character_sheet_service, consistency_service
 from ..services.conditioning import controlnet_model, resolve_image_mode
 from ..services.creative import NEGATIVE_DEFAULT, character_prompt
 from ..services.generation import submit_image, upload_start_image
@@ -339,3 +340,16 @@ async def character_jobs(character_id: str, limit: int = 20) -> list[dict[str, A
         if ((job.get("params") or {}).get("attach") or {}).get("owner_id") == character_id
     ]
     return matches[: min(limit, 100)]
+
+
+@router.post("/{character_id}/consistency-check")
+async def consistency_check(character_id: str, payload: ConsistencyCheckRequest) -> dict[str, Any]:
+    _get(character_id)
+    try:
+        return await consistency_service.check_identity(
+            character_id,
+            payload.candidate_asset_id,
+            model=payload.model,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

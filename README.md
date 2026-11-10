@@ -379,6 +379,17 @@ Kokoro replaces the robotic SAPI read with natural neural narration. SAPI remain
 
 ---
 
+## Image editing and speech recognition
+
+- **Whole-image SDXL edits:** `POST /api/v1/editing/edit` with `source_asset_id` and `prompt`; re-renders at the requested `denoise`. This is a refinement pass, not an instruction-following editor.
+- **Masked SDXL inpainting:** add `mask_asset_id` (white = regenerate, black = keep). Uses `SDXL_Inpainting_0.1.safetensors`, `VAEEncodeForInpaint` and tiled VAE decode. Configure the checkpoint as `models.checkpoints.sdxl_inpaint`.
+- **Identity checks:** `POST /api/characters/{id}/consistency-check` compares a candidate image with the approved canonical reference using the local Ollama vision model and returns `same_character`, confidence, wardrobe match and differences. It is advisory; it never approves a character.
+- **Speech recognition:** `POST /api/v1/speech/transcribe` runs `faster-whisper-small` on CPU int8 and returns text, timestamped segments and an SRT string. Model path: `models/asr/faster-whisper-small`; override with `WHISPER_MODEL_DIR`, `WHISPER_DEVICE` and `WHISPER_COMPUTE_TYPE`.
+- Qwen-Image-Edit and FLUX Kontext remain optional semantic editors; neither is installed. Speech recognition does not overwrite episode subtitles automatically.
+- Details and measured results: `docs/integration/IMAGE_EDITING_AND_ASR.md`.
+
+---
+
 ## Generation and outputs
 
 - `POST /api/generate` queues a job; one job runs at a time.

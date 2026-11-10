@@ -128,6 +128,7 @@ async def submit_image(
     workflow_id: str | None = None,
     scene_id: str | None = None,
     input_image: str | None = None,
+    mask_image: str | None = None,
     denoise: float | None = None,
     control_strength: float | None = None,
     control_net_name: str | None = None,
@@ -173,6 +174,8 @@ async def submit_image(
         params["cfg"] = cfg
     if input_image:
         params["input_image"] = input_image
+    if mask_image:
+        params["mask_image"] = mask_image
     if checkpoint:
         model["checkpoint"] = checkpoint
     if vae is not None:

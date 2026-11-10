@@ -161,11 +161,11 @@ This is not a photoreal lip-sync renderer. Mouth-shape rendering is blocked unti
 | Department | Status | Notes |
 |---|---|---|
 | Image generation | Ready | SD 1.5 and SDXL (`DreamShaperXL_1.0.safetensors`) installed and verified |
-| Image editing | Partial | Qwen-Image-Edit/FLUX Kontext nodes exist, local weights missing; SD 1.5 img2img available |
-| Character consistency | Partial | Canonical reference + img2img + LoRA injection; IPAdapter/ControlNet weights missing |
+| Image editing | Ready | SDXL img2img refinement + masked inpainting checkpoint; Qwen-Image-Edit/FLUX optional |
+| Character consistency | Ready | Canonical reference + img2img + local VLM identity check; IPAdapter/ControlNet optional |
 | Video generation | Partial | Wan 2.2 installed and tested; LTX/Hunyuan/CogVideoX weights missing |
 | Voice generation | Ready | Kokoro/SAPI local |
-| Speech recognition | Blocked | No Whisper/faster-whisper package or model |
+| Speech recognition | Ready | faster-whisper small on CPU int8; audio transcription + SRT |
 | Sound effects | Ready | Local procedural SFX |
 | Music | Ready | Local procedural music bed |
 | Scriptwriting | Ready | Ollama Qwen3 8B / Qwen2.5 7B |
@@ -176,7 +176,7 @@ This is not a photoreal lip-sync renderer. Mouth-shape rendering is blocked unti
 
 | Test | Result |
 |---|---|
-| Production registry | Passed — 7 ready, 3 partial, 1 blocked |
+| Production registry | Passed — 11 ready, 0 partial, 0 blocked |
 | Resource status | Passed — RTX 4050, 6.0 GB total, 2.87 GB free, 31.71 GB RAM |
 | Free VRAM | Passed — free VRAM increased to 4.9 GB |
 | Local LLM story generation | Passed — Qwen3 8B, 78 s, 4-scene story |
@@ -188,22 +188,26 @@ This is not a photoreal lip-sync renderer. Mouth-shape rendering is blocked unti
 | SDXL generation | Passed — 1024×1024, `DreamShaperXL_1.0.safetensors`, 30.3 s, peak 5602 MB, asset `343185cb8b15` |
 | SDXL workflows | Passed — all six `runnable=true` |
 | Four-view turnaround | Passed live — Leo sheet `71192986e23b`, 4 assets; prompt composition needs QA fixes |
+| SDXL whole-image edit | Passed — 1024×1024, 36.4 s, peak 6118 MB, asset `1a75110352d7`; global img2img does not replace backgrounds |
+| Masked SDXL inpainting | Passed — job `6771e5ee82da`, 30.7 s, peak 5570 MB, asset `c77daf17c8eb`; only masked region changed |
+| Speech recognition | Passed — faster-whisper small, 1.75 s clip in 3.45 s, exact transcript + SRT |
+| Character identity check | Passed — local Qwen2.5-VL returned structured verdict; missing canonical returns HTTP 400 |
 | Wan image-to-video | Passed — 320×192, 5 frames, asset `8224f26eb739`, 16.75 s, peak 3333 MB |
 | 4× upscale | Passed — 384→1536, asset `dd893937cbb2`, 5.77 s, peak 2471 MB |
 | Kokoro dialogue | Passed — 1.75 s WAV, asset `f9726f170b8f` |
 | Local SFX | Passed — asset `5e0aca751713` |
 | Local music | Passed — asset `9462863c6639` |
 | 1080p episode export | Passed — 1920×1080 H.264, AAC stereo, mov_text, 6.0 s, asset `8ce8ace5a449` |
-| Automated tests | **42 passed** |
+| Automated tests | **49 passed** |
 | Frontend build | Passed |
 
 ## Remaining limitations
 
 - SDXL is installed, but turnaround prompts can produce multi-view sheets and drift from the
   character’s wardrobe; fix prompt composition before promoting references.
-- No Qwen-Image-Edit/FLUX Kontext local weights; image-edit tests are blocked.
-- No IPAdapter/SDXL ControlNet weights; reference conditioning uses img2img.
-- No Whisper/faster-whisper; ASR and audio-to-lip alignment are blocked.
+- No Qwen-Image-Edit/FLUX Kontext local weights; instruction-following semantic editing is not available. Image editing uses SDXL img2img and masked inpainting.
+- No IPAdapter/SDXL ControlNet weights; reference conditioning uses img2img plus a local VLM identity check.
+- Speech recognition runs on CPU int8; no speaker diarisation, and transcripts do not silently overwrite episode subtitles.
 - No lip-sync rendering model; only the cue layer exists.
 - No LTX/Hunyuan/CogVideoX weights; video production uses Wan 2.2.
 - No AudioGen/MusicGen/ACE-Step/Stable Audio weights; current audio uses Kokoro and local synthesis.

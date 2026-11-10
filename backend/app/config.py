@@ -47,6 +47,7 @@ def default_config() -> dict[str, Any]:
             "checkpoints": {
                 "sd15": "DreamShaper_8_pruned.safetensors",
                 "sdxl": "",
+                "sdxl_inpaint": "",
             },
             "vae": {"sd15": "", "sdxl": ""},
             "lora": {"name": "", "strength": 0.8, "architecture": ""},

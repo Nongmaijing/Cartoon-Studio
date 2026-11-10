@@ -4,8 +4,38 @@ from typing import Any
 
 from ..comfy.client import ComfyClient, ComfyError
 from ..config import load_config
-from . import llm_provider, model_config_service, resource_manager, tts
+from ..workflows.registry import find_workflow
+from . import llm_provider, model_config_service, resource_manager, speech_service, tts
 from .engines import combo_options, detect_engines
+from .workflow_checks import workflow_readiness
+
+
+def _workflow_runnable(config: dict[str, Any], object_info: dict[str, Any], workflow_id: str) -> bool:
+    entry = find_workflow(config, workflow_id)
+    if not entry or entry.get("format") != "api" or not entry.get("valid"):
+        return False
+    if not object_info:
+        return False
+    try:
+        return bool(workflow_readiness(config, entry, object_info)["runnable"])
+    except Exception:  # noqa: BLE001 - readiness must never break the registry
+        return False
+
+
+def _checkpoint_options(object_info: dict[str, Any]) -> list[str]:
+    spec = (((object_info.get("CheckpointLoaderSimple") or {}).get("input") or {}).get("required") or {}).get("ckpt_name")
+    return [str(name) for name in combo_options(spec)]
+
+
+def _inpaint_checkpoint(config: dict[str, Any], object_info: dict[str, Any]) -> str:
+    configured = str(((config.get("models") or {}).get("checkpoints") or {}).get("sdxl_inpaint") or "")
+    if configured and configured in _checkpoint_options(object_info):
+        return configured
+    for name in _checkpoint_options(object_info):
+        lowered = name.lower()
+        if "inpaint" in lowered and ("xl" in lowered or "sdxl" in lowered):
+            return name
+    return ""
 
 
 def _node_names(object_info: dict[str, Any], *keywords: str) -> list[str]:
@@ -583,8 +613,18 @@ async def registry() -> dict[str, Any]:
     video_partial = [item for item in video_families if item["status"] == "partial"]
     audio_ready = [item for item in audio_families if item["status"] == "ready"]
     audio_partial = [item for item in audio_families if item["status"] == "partial"]
-    edit_ready = [item for item in edit_families if item["status"] == "ready"]
     edit_partial = [item for item in edit_families if item["status"] == "partial"]
+
+    img2img_ready = _workflow_runnable(config, object_info, "sdxl_img2img")
+    inpaint_checkpoint = _inpaint_checkpoint(config, object_info)
+    inpaint_nodes_ready = bool(object_info) and all(
+        name in object_info
+        for name in ("LoadImageMask", "VAEEncodeForInpaint", "VAEDecodeTiled")
+    )
+    inpaint_ready = bool(inpaint_checkpoint) and inpaint_nodes_ready
+    vision_ready = bool(vision_models) or bool(llm_health.get("openai", {}).get("configured"))
+    consistency_ready = img2img_ready and vision_ready
+    speech = speech_service.availability()
 
     departments = [
         _department(
@@ -603,42 +643,83 @@ async def registry() -> dict[str, Any]:
         _department(
             id="image_editing",
             name="Image editing",
-            status="ready" if edit_ready else ("partial" if edit_partial else "blocked"),
+            status="ready" if (img2img_ready or inpaint_ready) else ("partial" if edit_partial else "blocked"),
             summary=(
-                "Qwen-Image-Edit or FLUX Kontext weights are not installed. SD 1.5 img2img remains available as a basic edit path."
+                (
+                    "SDXL whole-image editing is ready and masked editing uses the SDXL inpainting checkpoint. "
+                    if inpaint_ready
+                    else "SDXL whole-image editing is ready. Masked editing needs an SDXL inpainting checkpoint. "
+                )
+                + "Qwen-Image-Edit and FLUX Kontext are not installed and are listed as optional semantic editors."
+                if (img2img_ready or inpaint_ready)
+                else "No runnable edit workflow. Qwen-Image-Edit/FLUX Kontext weights are missing, and the SDXL img2img path is unavailable."
             ),
-            installed=[item for item in edit_families if item["status"] == "ready"],
+            installed=(
+                [
+                    {
+                        "name": "SDXL whole-image edit (img2img)",
+                        "family": "reference-guided edit",
+                        "status": "ready" if img2img_ready else "blocked",
+                    }
+                ]
+                + (
+                    [
+                        {
+                            "name": f"SDXL masked inpainting ({inpaint_checkpoint})",
+                            "family": "masked edit",
+                            "status": "ready",
+                        }
+                    ]
+                    if inpaint_ready
+                    else []
+                )
+            )
+            + [item for item in edit_families if item["status"] == "ready"],
             missing=[item for item in edit_families if item["status"] != "ready"],
             recommendations=[item for item in recommendations() if item["department"] == "image_editing"],
         ),
         _department(
             id="character_consistency",
             name="Character consistency",
-            status=(
-                "ready"
-                if loras or controlnets
-                else "partial"
-            ),
+            status="ready" if consistency_ready else "partial",
             summary=(
-                "Canonical reference + img2img + optional LoRA injection are available. "
-                "IP-Adapter and SDXL ControlNet weights are not installed, so pose/identity conditioning uses img2img."
+                "Reference-locked SDXL img2img and an automated identity check are available. "
+                "IP-Adapter and SDXL ControlNet are optional upgrades, so pose/identity "
+                "conditioning currently uses img2img plus vision review."
+                if consistency_ready
+                else "Reference-locked img2img is available, but an automated identity check needs a local vision model. IP-Adapter/ControlNet weights are not installed."
             ),
-            installed=[
-                {"name": "Canonical reference + img2img", "family": "reference conditioning", "status": "ready"},
-            ]
-            + [
-                {"name": entry["name"], "family": "LoRA", "status": "ready", "size_gb": entry.get("size_gb")}
-                for entry in loras
-                if entry.get("installed_in_comfy")
-            ]
-            + [
-                {"name": entry["name"], "family": "ControlNet", "status": "ready", "size_gb": entry.get("size_gb")}
-                for entry in controlnets
-                if entry.get("installed_in_comfy")
-            ],
-            missing=[
-                item for item in recommendations() if item["department"] == "character_consistency"
-            ],
+            installed=(
+                [
+                    {"name": "Canonical reference + img2img", "family": "reference conditioning", "status": "ready"},
+                ]
+                + (
+                    [
+                        {
+                            "name": "Automated identity check (local VLM)",
+                            "family": "visual consistency QA",
+                            "status": "ready",
+                        }
+                    ]
+                    if vision_ready
+                    else []
+                )
+                + [
+                    {"name": entry["name"], "family": "LoRA", "status": "ready", "size_gb": entry.get("size_gb")}
+                    for entry in loras
+                    if entry.get("installed_in_comfy")
+                ]
+                + [
+                    {"name": entry["name"], "family": "ControlNet", "status": "ready", "size_gb": entry.get("size_gb")}
+                    for entry in controlnets
+                    if entry.get("installed_in_comfy")
+                ]
+            ),
+            missing=(
+                []
+                if consistency_ready
+                else [item for item in recommendations() if item["department"] == "character_consistency"]
+            ),
             recommendations=[item for item in recommendations() if item["department"] == "character_consistency"],
         ),
         _department(
@@ -668,10 +749,31 @@ async def registry() -> dict[str, Any]:
         _department(
             id="speech_recognition",
             name="Speech recognition",
-            status="blocked",
-            summary="No Whisper/faster-whisper package or local ASR model is installed. Subtitle/lip-sync alignment is blocked.",
-            installed=[],
-            missing=[item for item in recommendations() if item["department"] == "speech_recognition"],
+            status="ready" if speech["available"] else ("partial" if (speech["package_installed"] or speech["model_installed"]) else "blocked"),
+            summary=(
+                f"faster-whisper is installed with {speech['model_name']} "
+                f"({speech['device']}/{speech['compute_type']}). Audio transcription, SRT export and "
+                "audio-derived subtitle alignment are available."
+                if speech["available"]
+                else "faster-whisper or its local model is missing. Subtitle generation still works from the dialogue script, but audio transcription is unavailable."
+            ),
+            installed=(
+                [
+                    {
+                        "name": f"faster-whisper ({speech['model_name']})",
+                        "family": "ASR",
+                        "status": "ready",
+                        "device": speech["device"],
+                    }
+                ]
+                if speech["available"]
+                else []
+            ),
+            missing=(
+                []
+                if speech["available"]
+                else [item for item in recommendations() if item["department"] == "speech_recognition"]
+            ),
             recommendations=[item for item in recommendations() if item["department"] == "speech_recognition"],
         ),
         _department(

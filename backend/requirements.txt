@@ -10,10 +10,14 @@ PyYAML==6.0.2
 pydantic==2.14.3
 python-multipart==0.0.33
 python-dotenv==1.2.4
+Pillow==13.0.0
 
 # Local neural TTS
 kokoro-onnx==0.6.1
 numpy==2.4.6
+
+# Local speech recognition
+faster-whisper==1.2.1
 
 # AI Director and MCP
 openai==3.48.0

@@ -189,8 +189,8 @@ async def generate_json(
     return parse_json_text(text)
 
 
-async def vision_review(
-    image_path: str,
+async def _vision_json(
+    image_paths: list[str],
     prompt: str,
     *,
     model: str | None = None,
@@ -205,16 +205,18 @@ async def vision_review(
         raise ConfigurationError(
             f"Vision model '{selected_model}' is not installed in Ollama. Available: {', '.join(sorted(available))}"
         )
-    try:
-        with open(image_path, "rb") as handle:
-            encoded = base64.b64encode(handle.read()).decode("ascii")
-    except OSError as exc:
-        raise ServiceError(f"Could not read image for vision review: {exc}") from exc
+    images: list[str] = []
+    for image_path in image_paths:
+        try:
+            with open(image_path, "rb") as handle:
+                images.append(base64.b64encode(handle.read()).decode("ascii"))
+        except OSError as exc:
+            raise ServiceError(f"Could not read image for vision review: {exc}") from exc
     text = await _ollama_generate(
         prompt,
         model=selected_model,
         json_mode=True,
-        images=[encoded],
+        images=images,
         temperature=0.1,
     )
     data = parse_json_text(text)
@@ -224,6 +226,27 @@ async def vision_review(
     data["provider"] = "ollama"
     data["human_review_required"] = True
     return data
+
+
+async def vision_review(
+    image_path: str,
+    prompt: str,
+    *,
+    model: str | None = None,
+) -> dict[str, Any]:
+    return await _vision_json([image_path], prompt, model=model)
+
+
+async def vision_compare(
+    image_paths: list[str],
+    prompt: str,
+    *,
+    model: str | None = None,
+) -> dict[str, Any]:
+    """Compare two or more images and return a structured JSON verdict."""
+    if len(image_paths) < 2:
+        raise ServiceError("Image comparison needs at least two images.")
+    return await _vision_json(image_paths, prompt, model=model)
 
 
 async def health() -> dict[str, Any]:

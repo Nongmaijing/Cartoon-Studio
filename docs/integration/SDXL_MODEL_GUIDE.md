@@ -17,6 +17,8 @@ ComfyUI 0.44.2, RTX 4050 Laptop, 6 GB VRAM, 32 GB RAM.
 | Checkpoints | `DreamShaperXL_1.0.safetensors` (SDXL, 6.60 GB), `DreamShaper_8_pruned.safetensors` (SD 1.5), `v1-5-pruned-emaonly-fp16.safetensors` (SD 1.5) |
 | SDXL checkpoint | **`DreamShaperXL_1.0.safetensors`** — selected in Model Studio; stored in `D:\bro\ComfyUI\Models\checkpoints` (6.60 GB) |
 | SDXL Diffusers source | `D:\bro\ComfyUI\Models\diffusers\dreamshaper-xl-1-0` (6.60 GB) |
+| SDXL inpainting checkpoint | `SDXL_Inpainting_0.1.safetensors` in `D:\bro\ComfyUI\Models\checkpoints` (6.46 GB) |
+| SDXL inpainting source | `D:\bro\ComfyUI\Models\diffusers\sdxl-inpainting-0.1` (6.46 GB) |
 | VAEs | `wan2.2_vae.safetensors` (Wan), `pixel_space` (ComfyUI internal) |
 | SDXL VAE | Not needed separately — the converted checkpoint contains its VAE (`first_stage_model.*`) |
 | LoRAs | **None** |
@@ -116,6 +118,7 @@ Model CPU offload and attention mode are ComfyUI launch flags. Cartoon Studio re
 | `sdxl_character_expression` | Eight expressions from an approved reference |
 | `sdxl_character_pose` | Eight poses from an approved reference |
 | `sdxl_background` | 16:9 Little Wonder Village environments |
+| `sdxl_inpaint` | Masked edits using the SDXL inpainting checkpoint |
 
 All SDXL templates:
 
@@ -176,7 +179,7 @@ Reference conditioning: img2img works with the core workflow. SDXL ControlNet/IP
 
 | Test | Result |
 |---|---|
-| Model discovery | Passed — 3 checkpoints (1 SDXL), 2 VAEs, 0 LoRAs, 0 ControlNet, 1 upscaler |
+| Model discovery | Passed — 4 checkpoints (1 SDXL, 1 SDXL inpainting, 2 SD15), 2 VAEs, 0 LoRAs, 0 ControlNet, 1 upscaler |
 | SDXL checkpoint listing | Passed — `CheckpointLoaderSimple` lists `DreamShaperXL_1.0.safetensors` (also after moving it to D:) |
 | SDXL checkpoint load + encode | Passed — 512×512, 1 step; 8.0 s warm, 22.3 s cold after the move |
 | Six SDXL workflows runnable | Passed — all six `runnable=true`, checkpoint resolved |

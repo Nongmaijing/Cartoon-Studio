@@ -32,6 +32,7 @@ class GenerateRequest(BaseModel):
     length: int | None = Field(default=None, ge=1, le=501)
     fps: float | None = Field(default=None, ge=1, le=60)
     input_image: str | None = None
+    mask_image: str | None = None
     output_format: str | None = None
     scene_id: str | None = None
 
@@ -210,6 +211,31 @@ class AssetUpscaleRequest(BaseModel):
     owner_id: str | None = None
     role: str | None = Field(default=None, max_length=40)
     label: str = Field(default="upscaled", max_length=80)
+
+
+class EditRequest(BaseModel):
+    source_asset_id: str
+    prompt: str = Field(min_length=1, max_length=2000)
+    mask_asset_id: str | None = None
+    negative_prompt: str | None = None
+    seed: int | None = None
+    steps: int | None = Field(default=None, ge=1, le=100)
+    cfg: float | None = Field(default=None, ge=0.0, le=30.0)
+    denoise: float = Field(default=0.55, ge=0.05, le=1.0)
+    width: int | None = Field(default=None, ge=64, le=2048)
+    height: int | None = Field(default=None, ge=64, le=2048)
+
+
+class TranscribeRequest(BaseModel):
+    asset_id: str
+    language: str | None = Field(default=None, max_length=12)
+    vad: bool = True
+    include_srt: bool = True
+
+
+class ConsistencyCheckRequest(BaseModel):
+    candidate_asset_id: str
+    model: str | None = None
 
 
 class SceneCreate(BaseModel):

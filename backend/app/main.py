@@ -25,6 +25,7 @@ from .routers import (
     comfy,
     dashboard,
     dialogue,
+    editing,
     episodes,
     generate,
     health,
@@ -39,6 +40,7 @@ from .routers import (
     resources,
     scenes,
     settings,
+    speech,
     voice,
     workflows,
 )
@@ -125,6 +127,8 @@ app.include_router(health.router)
 app.include_router(llm.router)
 app.include_router(lip_sync.router)
 app.include_router(workflows.router)
+app.include_router(speech.router)
+app.include_router(editing.router)
 app.include_router(generate.router)
 app.include_router(assets.router)
 app.include_router(settings.router)

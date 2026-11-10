@@ -46,6 +46,10 @@ async def generate(payload: GenerateRequest) -> dict:
                 "batch_size": payload.batch_size or generation.get("batch_size", 1),
             }
         )
+        for key in ("input_image", "mask_image"):
+            value = getattr(payload, key)
+            if value is not None:
+                params[key] = value
         engine = str(entry.get("engine") or "")
         if engine in ("sdxl", "sd15"):
             checkpoint = configured_checkpoint(config, engine)
