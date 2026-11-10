@@ -189,7 +189,7 @@ Then:
 
 1. Acknowledge the risk warning.
 2. Select **Create as a plugin** / **Create**.
-3. Run **Scan Tools** and wait for the 56 tools to appear.
+3. Run **Scan Tools** and wait for the 60 tools to appear.
 4. Install/enable the plugin for your account or workspace.
 
 ### 6. Use it in a chat

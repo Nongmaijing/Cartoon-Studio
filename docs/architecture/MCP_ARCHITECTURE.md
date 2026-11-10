@@ -34,7 +34,7 @@ The server is a **resource server**. It does not implement a full OAuth authoriz
 
 ## Tool model
 
-- 56 tools are generated from the shared `ToolRegistry` schema.
+- 56 studio tools are generated from the shared `ToolRegistry` schema, plus 4 OpenCode bridge tools.
 - Each tool calls the same service used by the AI Director and REST API.
 - Tools return structured JSON.
 - Expensive/destructive tools require `confirm=true`.

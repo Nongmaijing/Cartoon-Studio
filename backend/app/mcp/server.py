@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -12,6 +13,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from ..ai.tool_registry import ToolContext, tool_registry
+from ..ai import opencode_client
 from ..core.runtime import base_url, mcp_settings
 from ..core.security import verify_mcp_token
 from ..services import project_service
@@ -82,6 +84,82 @@ async def _execute_tool(name: str, payload: dict[str, Any], idempotency_key: str
         scopes="production",
     )
     return await tool_registry.execute(name, payload, context, idempotency_key=idempotency_key)
+
+
+async def opencode_ask(
+    message: str,
+    session_id: str = "",
+    title: str = "",
+    model: str = "",
+    wait_seconds: int = 45,
+) -> dict[str, Any]:
+    """Start an OpenCode coding-agent task in D:\\bro.
+
+    The message is sent to the OpenCode HTTP API. If the task is still running after
+    wait_seconds, call opencode_task with the returned session_id. Use model in the
+    form provider/model, for example opencode-go/beam-free or ollama/qwen3:8b. Leave
+    model empty to use the configured default.
+    """
+    try:
+        return await asyncio.to_thread(
+            opencode_client.ask,
+            message,
+            session_id=session_id or None,
+            title=title,
+            model=model or None,
+            wait_seconds=max(0, min(int(wait_seconds), 120)),
+        )
+    except opencode_client.OpenCodeError as exc:
+        return {"status": "failed", "error": str(exc)}
+
+
+async def opencode_task(session_id: str) -> dict[str, Any]:
+    """Poll an OpenCode task started by opencode_ask.
+
+    Returns status running, completed, failed or waiting_for_permission, plus the
+    assistant text, tools used and any pending permission requests.
+    """
+    try:
+        return await asyncio.to_thread(opencode_client.task_status, session_id)
+    except opencode_client.OpenCodeError as exc:
+        return {"session_id": session_id, "status": "failed", "error": str(exc)}
+
+
+async def opencode_sessions(limit: int = 10) -> dict[str, Any]:
+    """List recent OpenCode sessions visible to the local service."""
+    try:
+        items = await asyncio.to_thread(opencode_client.list_sessions, max(1, min(int(limit), 50)))
+    except opencode_client.OpenCodeError as exc:
+        return {"status": "failed", "error": str(exc), "sessions": []}
+    return {
+        "sessions": [
+            {
+                "session_id": item.get("id"),
+                "title": item.get("title") or "",
+                "updated": (item.get("time") or {}).get("updated"),
+                "directory": (item.get("location") or {}).get("directory"),
+                "model": item.get("model"),
+            }
+            for item in items
+        ]
+    }
+
+
+async def opencode_permission(session_id: str, request_id: str, decision: str = "once") -> dict[str, Any]:
+    """Answer a pending OpenCode permission request.
+
+    decision must be once, always or reject. Only approve actions you understand;
+    'always' saves a durable project-scoped rule.
+    """
+    try:
+        return await asyncio.to_thread(
+            opencode_client.reply_permission,
+            session_id,
+            request_id,
+            decision,
+        )
+    except opencode_client.OpenCodeError as exc:
+        return {"status": "failed", "error": str(exc)}
 
 
 def _transport_security(public_url: str, allowed_hosts: list[str], allowed_origins: list[str]) -> TransportSecuritySettings:
@@ -161,6 +239,8 @@ def create_mcp_server() -> FastMCP:
     )
     for tool in tool_registry.list_tools():
         mcp.add_tool(_make_tool_function(tool), name=tool.name, description=tool.description)
+    for function in (opencode_ask, opencode_task, opencode_sessions, opencode_permission):
+        mcp.add_tool(function, name=function.__name__, description=(function.__doc__ or "").strip())
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health(request: Request) -> JSONResponse:  # noqa: ARG001
@@ -168,7 +248,7 @@ def create_mcp_server() -> FastMCP:
             {
                 "status": "ok",
                 "server": "cartoon-studio-mcp",
-                "tools": len(tool_registry.list_tools()),
+                "tools": len(tool_registry.list_tools()) + 4,
                 "auth": auth_mode,
             }
         )

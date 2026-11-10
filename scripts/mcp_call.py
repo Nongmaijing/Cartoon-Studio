@@ -29,7 +29,8 @@ def _usage() -> str:
         "Usage:\n"
         "  mcp_call.py tools\n"
         "  mcp_call.py call <tool_name> ['{\"arg\": \"value\"}']\n"
-        "  mcp_call.py <tool_name> ['{\"arg\": \"value\"}']\n\n"
+        "  mcp_call.py <tool_name> ['{\"arg\": \"value\"}']\n"
+        "  mcp_call.py call <tool_name> -      # read JSON arguments from stdin\n\n"
         "Authentication:\n"
         "  Set MCP_TOKEN in the environment or in CartoonStudio/.env.\n"
         "  Create one with:\n"
@@ -114,6 +115,9 @@ def main() -> int:
     else:
         tool = args.command
         raw = args.tool or "{}"
+
+    if raw == "-":
+        raw = sys.stdin.read()
 
     try:
         arguments = json.loads(raw)
