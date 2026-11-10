@@ -34,10 +34,11 @@ def test_assistant_content_extraction():
 
 @pytest.fixture
 def fake_session(monkeypatch):
-    def _install(messages, session_time, permissions=None):
+    def _install(messages, session_time, permissions=None, inbox=None):
         monkeypatch.setattr(oc, "get_session", lambda session_id: {"id": session_id, "title": "t", "time": session_time, "location": {"directory": "D:\\bro"}})
         monkeypatch.setattr(oc, "list_messages", lambda session_id, limit=60: messages)
         monkeypatch.setattr(oc, "list_permissions", lambda session_id: permissions or [])
+        monkeypatch.setattr(oc, "list_inbox", lambda session_id: inbox or [])
 
     return _install
 
@@ -94,6 +95,33 @@ def test_task_status_failed(fake_session):
     result = oc.task_status("ses_test")
     assert result["status"] == "failed"
     assert result["error"] == "quota"
+
+
+def test_task_status_queued_when_message_not_delivered(fake_session):
+    fake_session(
+        [{"type": "user", "id": "msg_old", "text": "previous"}],
+        {"busy": 100, "idle": 200},
+        inbox=[{"id": "inbox_1", "type": "user"}],
+    )
+    result = oc.task_status("ses_test", "msg_new")
+    assert result["status"] == "queued"
+
+
+def test_start_task_uses_configured_default_session(monkeypatch):
+    monkeypatch.setattr(oc, "DEFAULT_SESSION", "ses_default")
+    monkeypatch.setattr(oc, "get_session", lambda session_id: {"id": session_id, "title": "existing", "location": {"directory": "D:\\bro"}})
+    captured = {}
+
+    def fake_api(method, path, **kwargs):
+        captured["path"] = path
+        captured["body"] = kwargs.get("body")
+        return {"data": {"id": "msg_1"}}
+
+    monkeypatch.setattr(oc, "_api", fake_api)
+    result = oc.start_task("continue please")
+    assert result["session_id"] == "ses_default"
+    assert result["delivery"] == "queue"
+    assert captured["body"]["delivery"] == "queue"
 
 
 def test_start_task_reuses_existing_session(monkeypatch):

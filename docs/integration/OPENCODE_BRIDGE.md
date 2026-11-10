@@ -21,8 +21,8 @@ ChatGPT
 
 | Tool | Purpose |
 |---|---|
-| `opencode_ask` | Start a task: `message`, optional `session_id`, `title`, `model`, `wait_seconds` |
-| `opencode_task` | Poll a task: `session_id` |
+| `opencode_ask` | Start a task: `message`, optional `session_id`, `title`, `model`, `wait_seconds`, `delivery` |
+| `opencode_task` | Poll a task: `session_id`, optional `message_id` |
 | `opencode_sessions` | List recent OpenCode sessions: `limit` |
 | `opencode_permission` | Answer a pending permission request: `session_id`, `request_id`, `decision` (`once`, `always`, `reject`) |
 
@@ -32,13 +32,14 @@ waits up to 45 seconds for a result, then returns `status: "running"` and the
 
 Status values:
 
+- `queued` — the message is waiting in the session inbox
 - `running`
 - `completed`
 - `failed`
 - `waiting_for_permission`
 
-A completed result includes `text`, `tools`, `message_count`, `directory` and
-`pending_permissions`.
+A completed result includes `text`, `tools`, `message_count`, `inbox_count`,
+`directory` and `pending_permissions`.
 
 ## Model selection
 
@@ -109,6 +110,31 @@ $env:MCP_TOKEN = $resp.token
 
 Use `-` as the arguments to read JSON from stdin; this avoids PowerShell quoting
 problems with spaces and quotes.
+
+## Continue an existing session
+
+By default `opencode_ask` creates a new session. To continue one specific session
+(for example the one you are using in the TUI), set:
+
+```env
+OPENCODE_BRIDGE_SESSION_ID=ses_e43976869ffe7bEeJp7hFszSWm
+```
+
+Then every `opencode_ask` call without an explicit `session_id` continues that
+session. `delivery` defaults to **queue**, so the message waits for the current
+turn to finish instead of interrupting it.
+
+- The response includes `message_id`. Pass it to `opencode_task` to track exactly
+  that message; without it, polling may read the previous turn.
+- A queued message reports `status: "queued"` until it is delivered.
+- Remove `OPENCODE_BRIDGE_SESSION_ID` (or set it empty) and restart MCP to return
+  to creating fresh sessions.
+- Find an ID with `opencode_sessions`, the OpenCode UI, or
+  `opencode api get /api/session/active`.
+
+Warning: a shared session receives messages from both clients. Use `queue`
+delivery, avoid sending from ChatGPT while you are actively typing in the TUI,
+and expect the conversation history to include both sides.
 
 ## Session behaviour
 

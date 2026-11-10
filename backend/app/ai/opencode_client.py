@@ -9,6 +9,7 @@ from typing import Any
 
 DEFAULT_DIRECTORY = os.environ.get("OPENCODE_BRIDGE_DIR", r"D:\bro")
 DEFAULT_MODEL = os.environ.get("OPENCODE_BRIDGE_MODEL", "opencode-go/beam-free")
+DEFAULT_SESSION = os.environ.get("OPENCODE_BRIDGE_SESSION_ID", "").strip()
 DEFAULT_TIMEOUT = float(os.environ.get("OPENCODE_BRIDGE_TIMEOUT", "180"))
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -139,6 +140,16 @@ def list_permissions(session_id: str) -> list[dict[str, Any]]:
     return list(data or [])
 
 
+def list_inbox(session_id: str) -> list[dict[str, Any]]:
+    try:
+        data = _payload(_api("get", f"/api/session/{session_id}/inbox"))
+    except OpenCodeError:
+        return []
+    if isinstance(data, dict):
+        data = data.get("data")
+    return list(data or [])
+
+
 def reply_permission(session_id: str, request_id: str, decision: str) -> dict[str, Any]:
     if decision not in ("once", "always", "reject"):
         raise OpenCodeError("decision must be once, always or reject.")
@@ -159,18 +170,29 @@ def start_task(
     title: str = "",
     model: str | None = None,
     directory: str | None = None,
+    delivery: str | None = None,
 ) -> dict[str, Any]:
+    session_id = (session_id or DEFAULT_SESSION or "").strip() or None
     if session_id:
         session = get_session(session_id)
+        effective_delivery = delivery or "queue"
     else:
         session = create_session(title=title, directory=directory, model=model)
+        effective_delivery = delivery or "steer"
     session_id = str(session["id"])
-    prompt = _payload(_api("post", f"/api/session/{session_id}/prompt", body={"text": message}))
+    prompt = _payload(
+        _api(
+            "post",
+            f"/api/session/{session_id}/prompt",
+            body={"text": message, "delivery": effective_delivery},
+        )
+    )
     return {
         "session_id": session_id,
         "title": session.get("title") or "",
         "message_id": (prompt or {}).get("id") if isinstance(prompt, dict) else None,
         "status": "running",
+        "delivery": effective_delivery,
         "model": session.get("model"),
         "directory": (session.get("location") or {}).get("directory"),
     }
@@ -192,15 +214,25 @@ def _tool_names(message: dict[str, Any]) -> list[str]:
     return names
 
 
-def task_status(session_id: str) -> dict[str, Any]:
+def task_status(session_id: str, message_id: str | None = None) -> dict[str, Any]:
     session = get_session(session_id)
     messages = list_messages(session_id, limit=60)
     permissions = list_permissions(session_id)
-    latest_user_index = next(
-        (index for index, message in enumerate(messages) if message.get("type") == "user"),
+    inbox = list_inbox(session_id)
+    message_index = next(
+        (index for index, message in enumerate(messages) if message_id and message.get("id") == message_id),
         None,
     )
-    relevant = messages[:latest_user_index] if latest_user_index is not None else messages
+    if message_id and message_index is None:
+        relevant: list[dict[str, Any]] = []
+    elif message_index is not None:
+        relevant = messages[:message_index]
+    else:
+        latest_user_index = next(
+            (index for index, message in enumerate(messages) if message.get("type") == "user"),
+            None,
+        )
+        relevant = messages[:latest_user_index] if latest_user_index is not None else messages
     assistants = [message for message in relevant if message.get("type") == "assistant"]
     latest = assistants[0] if assistants else None
     text = "\n\n".join(filter(None, (_assistant_text(item) for item in reversed(assistants)))).strip()
@@ -216,6 +248,8 @@ def task_status(session_id: str) -> dict[str, Any]:
     active = busy is not None and (idle is None or idle < busy)
     if permissions:
         status = "waiting_for_permission"
+    elif message_id and message_index is None:
+        status = "queued"
     elif active:
         status = "running"
     elif latest is not None:
@@ -228,27 +262,35 @@ def task_status(session_id: str) -> dict[str, Any]:
         status = "completed" if messages[0].get("outcome") == "succeeded" else "failed"
         if status == "failed":
             error = (messages[0].get("error") or {}).get("message")
+    elif inbox:
+        status = "queued"
 
     return {
         "session_id": session_id,
+        "message_id": message_id,
         "title": session.get("title") or "",
         "status": status,
         "text": text,
         "tools": list(dict.fromkeys(tools)),
         "message_count": len(messages),
+        "inbox_count": len(inbox),
         "pending_permissions": permissions,
         "error": error,
         "directory": (session.get("location") or {}).get("directory"),
     }
 
 
-def wait_task(session_id: str, timeout_seconds: float = 60.0) -> dict[str, Any]:
+def wait_task(
+    session_id: str,
+    timeout_seconds: float = 60.0,
+    message_id: str | None = None,
+) -> dict[str, Any]:
     deadline = time.time() + max(0.0, min(timeout_seconds, 300.0))
-    result = task_status(session_id)
-    while result["status"] == "running" and time.time() < deadline:
+    result = task_status(session_id, message_id)
+    while result["status"] in ("running", "queued") and time.time() < deadline:
         time.sleep(1.5)
-        result = task_status(session_id)
-    if result["status"] == "running":
+        result = task_status(session_id, message_id)
+    if result["status"] in ("running", "queued"):
         result["timed_out"] = True
     return result
 
@@ -260,10 +302,21 @@ def ask(
     title: str = "",
     model: str | None = None,
     wait_seconds: int = 0,
+    delivery: str | None = None,
 ) -> dict[str, Any]:
-    started = start_task(message, session_id=session_id, title=title, model=model)
+    started = start_task(
+        message,
+        session_id=session_id,
+        title=title,
+        model=model,
+        delivery=delivery,
+    )
     if wait_seconds > 0:
-        result = wait_task(started["session_id"], float(wait_seconds))
+        result = wait_task(
+            started["session_id"],
+            float(wait_seconds),
+            message_id=started.get("message_id"),
+        )
         result.update({"started": started, "timed_out": result.get("timed_out", False)})
         return result
     return started

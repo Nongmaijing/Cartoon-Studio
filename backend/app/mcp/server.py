@@ -92,13 +92,16 @@ async def opencode_ask(
     title: str = "",
     model: str = "",
     wait_seconds: int = 45,
+    delivery: str = "",
 ) -> dict[str, Any]:
     """Start an OpenCode coding-agent task in D:\\bro.
 
     The message is sent to the OpenCode HTTP API. If the task is still running after
     wait_seconds, call opencode_task with the returned session_id. Use model in the
     form provider/model, for example opencode-go/beam-free or ollama/qwen3:8b. Leave
-    model empty to use the configured default.
+    model empty to use the configured default. When OPENCODE_BRIDGE_SESSION_ID is set,
+    omitting session_id continues that session with queue delivery instead of
+    interrupting it. delivery accepts steer or queue.
     """
     try:
         return await asyncio.to_thread(
@@ -108,19 +111,25 @@ async def opencode_ask(
             title=title,
             model=model or None,
             wait_seconds=max(0, min(int(wait_seconds), 120)),
+            delivery=delivery or None,
         )
     except opencode_client.OpenCodeError as exc:
         return {"status": "failed", "error": str(exc)}
 
 
-async def opencode_task(session_id: str) -> dict[str, Any]:
+async def opencode_task(session_id: str, message_id: str = "") -> dict[str, Any]:
     """Poll an OpenCode task started by opencode_ask.
 
-    Returns status running, completed, failed or waiting_for_permission, plus the
-    assistant text, tools used and any pending permission requests.
+    Returns status queued, running, completed, failed or waiting_for_permission,
+    plus the assistant text, tools used and any pending permission requests.
+    Pass the message_id returned by opencode_ask when continuing an existing session.
     """
     try:
-        return await asyncio.to_thread(opencode_client.task_status, session_id)
+        return await asyncio.to_thread(
+            opencode_client.task_status,
+            session_id,
+            message_id or None,
+        )
     except opencode_client.OpenCodeError as exc:
         return {"session_id": session_id, "status": "failed", "error": str(exc)}
 
