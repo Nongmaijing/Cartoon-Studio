@@ -2,16 +2,29 @@
 
 ## Ownership
 
-| Role | Responsibility |
+| Responsibility | Owner |
 |---|---|
-| **Human supervisor** | Occasional review; final creative and spending decisions |
-| **OpenCode** | Production lead: engineering, asset generation, QA, docs, commits |
-| **ChatGPT** | Collaborator: planning, review, testing, workflow drafting through the OpenCode bridge |
+| Creative direction and series vision | **ChatGPT** |
+| Story development, scripts and dialogue | **ChatGPT** |
+| Technical implementation and debugging | **OpenCode** |
+| Character and asset consistency | **ChatGPT + OpenCode** |
+| Image, animation and audio production | **Cartoon Studio** (operated by OpenCode) |
+| Technical testing and production diagnostics | **OpenCode** |
+| Creative and quality review | **ChatGPT** |
+| Final supervision and major approvals | **Human supervisor** |
+
+OpenCode does not overrule creative decisions. If a technical constraint conflicts with
+a creative request, OpenCode reports the constraint and proposes options; ChatGPT
+decides the creative direction; the human decides major approvals.
 
 The supervisor is not expected to operate the UI day to day. OpenCode drives the
 studio and reports decisions that need sign-off.
 
 ## Decision rights
+
+Creative direction, story, scripts, dialogue and quality judgement belong to ChatGPT.
+OpenCode implements that direction, provides technical evidence, and flags conflicts
+instead of making silent creative changes.
 
 OpenCode may proceed without asking on:
 
