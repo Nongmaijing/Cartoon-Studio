@@ -8,17 +8,17 @@ from ..comfy.client import ComfyClient
 from ..config import load_config
 from . import character_service
 from .audit_service import log
-from .creative import character_prompt
+from .creative import character_negative_prompt, character_prompt
 from .errors import ServiceError
 from .generation import submit_image, upload_start_image
 from .jobs import list_jobs
 from .model_config_service import resolve_image_model
 
 TURNAROUND_VIEWS = [
-    ("front", "front view"),
-    ("three_quarter", "three-quarter view"),
-    ("side", "side profile view"),
-    ("back", "back view"),
+    ("front", "front"),
+    ("three_quarter", "three-quarter"),
+    ("side", "side profile"),
+    ("back", "back"),
 ]
 EXPRESSIONS = [
     "happy",
@@ -68,11 +68,7 @@ def _items_for(kind: str) -> list[tuple[str, str]]:
 
 def _extra_prompt(kind: str) -> str:
     if kind == "turnaround":
-        return (
-            "same character, identical clothing, colors, proportions, hair and accessories, "
-            "plain neutral background, consistent scale, full body, production turnaround reference, "
-            "one character only, no multiple characters"
-        )
+        return "do not redesign, restyle or recolor the character; keep the saved design unchanged"
     if kind == "expressions":
         return (
             "same character, identical clothing and colors, head and shoulders portrait, "
@@ -162,6 +158,7 @@ async def generate_sheet(
         job = await submit_image(
             project_id=project_id,
             prompt=composed,
+            negative_prompt=character_negative_prompt("reference", label) if kind == "turnaround" else None,
             attach={
                 "owner_type": "character",
                 "owner_id": character_id,

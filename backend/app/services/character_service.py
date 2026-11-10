@@ -12,7 +12,7 @@ from .approval_service import approve_character as approve_character_record
 from .approval_service import snapshot_character
 from .audit_service import log
 from .conditioning import controlnet_model, controlnet_ready, resolve_image_mode
-from .creative import NEGATIVE_DEFAULT, character_prompt
+from .creative import character_negative_prompt, character_prompt
 from .errors import NotFoundError, ServiceError
 from .generation import upload_start_image
 from .media import cover_asset_id, list_media, media_counts
@@ -285,7 +285,7 @@ async def generate_sheet(
     result = await provider.generate_image(
         project_id=project_id,
         prompt=composed,
-        negative_prompt=negative_prompt or NEGATIVE_DEFAULT,
+        negative_prompt=negative_prompt or character_negative_prompt(kind, final_label),
         width=width,
         height=height,
         steps=steps,
