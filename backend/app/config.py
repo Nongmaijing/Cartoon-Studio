@@ -51,6 +51,10 @@ def default_config() -> dict[str, Any]:
                 "scheduler": "sgm_uniform",
             },
         },
+        "creative": {
+            "art_style": "ghibli_painterly",
+            "custom_style": "",
+        },
         "models": {
             "default_architecture": "sdxl",
             "checkpoints": {

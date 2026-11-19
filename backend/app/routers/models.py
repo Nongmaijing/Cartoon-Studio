@@ -4,9 +4,11 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from ..config import load_config, save_config
 from ..schemas import ModelDownloadRequest
-from ..schemas_ai import FastModeUpdate, ModelConfigUpdate
+from ..schemas_ai import ArtStyleUpdate, FastModeUpdate, ModelConfigUpdate
 from ..services import model_config_service, model_download_service
+from ..services.art_styles import STYLE_PRESETS, available_styles, resolve_style
 from ..services.errors import ServiceError
 
 router = APIRouter(prefix="/api/v1/models", tags=["models"])
@@ -43,6 +45,34 @@ async def recommendations() -> dict[str, Any]:
 @router.get("/fast-mode")
 async def fast_mode() -> dict[str, Any]:
     return model_config_service.fast_mode_status()
+
+
+@router.get("/styles")
+async def art_styles() -> dict[str, Any]:
+    active = resolve_style(load_config())
+    return {
+        "active": active["id"],
+        "name": active["name"],
+        "custom_style": (load_config().get("creative") or {}).get("custom_style", ""),
+        "styles": available_styles(),
+    }
+
+
+@router.put("/styles")
+async def update_art_style(payload: ArtStyleUpdate) -> dict[str, Any]:
+    if payload.art_style not in STYLE_PRESETS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown art style '{payload.art_style}'. Choose one of: {', '.join(STYLE_PRESETS)}.",
+        )
+    config = load_config()
+    creative = dict(config.get("creative") or {})
+    creative["art_style"] = payload.art_style
+    if payload.custom_style is not None:
+        creative["custom_style"] = payload.custom_style.strip()
+    config["creative"] = creative
+    save_config(config)
+    return await art_styles()
 
 
 @router.put("/fast-mode")

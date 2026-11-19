@@ -60,6 +60,11 @@ class FastModeUpdate(BaseModel):
     strength: float | None = Field(default=None, ge=0.1, le=2.0)
 
 
+class ArtStyleUpdate(BaseModel):
+    art_style: str = Field(min_length=1, max_length=64)
+    custom_style: str | None = Field(default=None, max_length=300)
+
+
 class TunnelStartRequest(BaseModel):
     confirm: bool = False
     ttl_minutes: int = Field(default=30, description="Minutes until auto-secure; 0 means never auto-stop")

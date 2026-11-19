@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .art_styles import style_text
+
 CARTOON_STYLE = (
     "premium Western preschool 2D television animation, stylized graphic cartoon design, "
     "clean confident outlines, simplified rounded shapes, flat solid color fills, subtle cel shading, "
@@ -343,7 +345,7 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
             parts.append(f"wearing {clothing_positive}")
         if style:
             parts.append(style)
-        parts.append(CARTOON_STYLE)
+        parts.append(style_text())
         parts.append(
             f"single head and shoulders portrait showing {label or 'a neutral expression'}, "
             "one expression only, plain light background, no multiple views"
@@ -356,7 +358,7 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
             parts.append(f"wearing {clothing_positive}")
         if style:
             parts.append(style)
-        parts.append(CARTOON_STYLE)
+        parts.append(style_text())
         parts.append(
             f"single full body character in a {label or 'standing naturally'} pose, "
             "one character only, plain light background, clear silhouette, no multiple views"
@@ -432,7 +434,7 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
             parts.append(clothing_tail)
         if style:
             parts.append(_back_safe(style) if is_back else style)
-        parts.append(CARTOON_STYLE_BACK if is_back else CARTOON_STYLE)
+        parts.append(style_text(back=is_back))
 
     if extra:
         parts.append(extra.strip())
@@ -444,7 +446,7 @@ def background_prompt(background: dict[str, Any], extra: str | None = None) -> s
     description = _clean(background.get("description"))
     if description:
         parts.append(description)
-    parts.append(CARTOON_STYLE)
+    parts.append(style_text())
     parts.append("environment background art, establishing shot, no characters, no people, no text")
     if extra:
         parts.append(extra.strip())
@@ -504,7 +506,7 @@ def scene_prompt(
             bits.append(style)
         parts.append(", ".join(bit for bit in bits if bit))
 
-    parts.append(CARTOON_STYLE)
+    parts.append(style_text())
     if kind == "video":
         parts.append(
             "animated cartoon shot, natural character motion, consistent character design, "
