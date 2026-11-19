@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "name": "SDXL IP-Adapter identity",
+  "description": "Identity-conditioned SDXL generation with IP-Adapter Plus (ViT-H). Requires the ComfyUI_IPAdapter_plus custom node, the plus SDXL adapter and the ViT-H CLIP vision encoder. Select explicitly; not used by default.",
+  "engine": "sdxl",
+  "kind": "image",
+  "roles": {
+    "checkpoint": {
+      "node": "4",
+      "class": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    },
+    "positive_prompt": {
+      "node": "6",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "negative_prompt": {
+      "node": "7",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "input_image": {
+      "node": "10",
+      "class": "LoadImage",
+      "input": "image"
+    },
+    "width": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "width"
+    },
+    "height": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "height"
+    },
+    "batch_size": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "batch_size"
+    },
+    "seed": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "seed"
+    },
+    "steps": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "steps"
+    },
+    "cfg": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "cfg"
+    },
+    "sampler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "sampler_name"
+    },
+    "scheduler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "scheduler"
+    },
+    "denoise": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "denoise"
+    },
+    "filename_prefix": {
+      "node": "9",
+      "class": "SaveImage",
+      "input": "filename_prefix"
+    }
+  },
+  "model_checks": [
+    {
+      "role": "checkpoint",
+      "loader": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    }
+  ],
+  "output_nodes": [
+    "9"
+  ]
+}
