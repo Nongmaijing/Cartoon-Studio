@@ -34,7 +34,7 @@ The server is a **resource server**. It does not implement a full OAuth authoriz
 
 ## Tool model
 
-- The studio profile exposes 56 tools generated from the shared `ToolRegistry` schema; the separate OpenCode profile exposes 4 bridge tools.
+- The studio profile exposes 58 tools generated from the shared `ToolRegistry` schema; the separate OpenCode profile exposes 4 bridge tools.
 - Each tool calls the same service used by the AI Director and REST API.
 - Tools return structured JSON.
 - Expensive/destructive tools require `confirm=true`.

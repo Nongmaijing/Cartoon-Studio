@@ -1,6 +1,6 @@
 # Cartoon Studio
 
-Local, dark-themed production app for Western 2D cartoon episodes, powered by an existing **ComfyUI** installation. **All six production phases plus the dual AI integration are complete:** application shell, dashboard, ComfyUI connection, workflow discovery, DreamShaper 8 image generation, 4× upscaling, project/character/background/scene management, Wan 2.2 video, character identity and pose control, Kokoro neural voice/dialogue, episode timeline and FFmpeg MP4 assembly, a shared production service layer, a provider registry, an automated production orchestrator, an authenticated MCP server for ChatGPT, and an in-app AI Director that can use OpenAI or a local Ollama model.
+Local, dark-themed production app for Western 2D cartoon episodes, powered by an existing **ComfyUI** installation. **All six production phases plus the dual AI integration are complete:** application shell, dashboard, ComfyUI connection, workflow discovery, SDXL (DreamShaper XL) and SD 1.5 image generation, 4× upscaling, project/character/background/scene management, Wan 2.2 video, character identity and pose control, Kokoro neural voice/dialogue, episode timeline and FFmpeg MP4 assembly, a shared production service layer, a provider registry, an automated production orchestrator, an authenticated MCP server for ChatGPT, and an in-app AI Director that can use OpenAI or a local Ollama model.
 
 > **AI integration complete (v0.7.0).** The local production system remains fully usable without OpenAI. The AI Director activates when `OPENAI_API_KEY` and `OPENAI_MODEL` are configured. The MCP server is implemented and bearer-token tested; ChatGPT account-side connector setup is a deployment step.
 
@@ -16,13 +16,13 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | ComfyUI discovery from the running process + model-path YAML | Working |
 | Workflow discovery, API/UI format detection, validation against `/object_info` | Working |
 | Workflow import (API format) with inferred role mapping, export | Working |
-| SD 1.5 text-to-image generation through the job queue | Working — DreamShaper 8 production checkpoint |
-| 4× production upscaling with 4x-UltraSharp | Working |
+| SDXL and SD 1.5 text-to-image generation through the job queue | Working — DreamShaper XL 1.0 default, DreamShaper 8 fallback |
+| 4× production upscaling with 4x-UltraSharp or Real-ESRGAN | Working |
 | Output download into `outputs/<project>/<job>/`, asset rows, preview | Working |
 | Projects: create, rename, duplicate, archive, archive visibility, active-project selection | Working |
 | Character Studio: profiles, reference views, expressions, poses, media library | Working |
 | Character identity: canonical image, img2img consistency generation, adjustable denoise | Working |
-| Pose control: ControlNet OpenPose when installed, img2img fallback otherwise | Working |
+| Pose control: ControlNet OpenPose SDXL installed, img2img fallback otherwise | Working |
 | AnimateDiff readiness and text-to-video template | Detected / template only until nodes + motion model exist |
 | Background Studio: reusable environments, aspect ratios/resolutions, media library | Working |
 | Scene Studio: cast, background, action, dialogue, camera, keyframe/video generation, media | Working |
@@ -33,6 +33,7 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | Voice & Dialogue: per-character local voices, scene dialogue lines, previews, generated WAV audio | Working |
 | Local TTS: **Kokoro-82M neural narration**, Windows SAPI, Piper, Coqui TTS, eSpeak NG | Kokoro ready here; SAPI fallback available |
 | Story production: *Milo and the Little Light* 30-second children's motion comic | Exported and verified |
+| SDXL pilot: *Bramble and the Last Lantern* 6:01 / 41 shots | Exported and verified |
 | Episode Editor: timeline segments, durations, transitions, audio tracks, subtitles, MP4 export | Working |
 | FFmpeg assembly: 720p H.264 + AAC + soft subtitle track, progress/cancel/log | Working |
 | Settings: server URL, paths, generation defaults, TTS paths, model listing, FFmpeg detection | Working |
@@ -42,14 +43,20 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | MCP servers (studio 8020 / OpenCode 8030, bearer + scoped tokens) | Working and tested |
 | Production memory, approvals, character/asset versions, audit logs | Working |
 | Model Studio: checkpoint/VAE/LoRA discovery, architecture detection, compatibility and missing-dependency reporting | Working |
-| SDXL character/background workflow templates with tiled VAE and 6 GB presets | Templates valid; live SDXL blocked until an SDXL checkpoint is installed |
-| Character turnaround / expression / pose sheet orchestration | Implemented; mocked tests pass; live SDXL blocked |
+| SDXL character/background workflow templates with tiled VAE and 6 GB presets | Live-verified on DreamShaper XL 1.0 |
+| Character turnaround / expression / pose sheet orchestration | Implemented; live SDXL sheets generated |
+| SDXL Lightning fast mode (4/8-step LoRA) | Working — used for the 6-minute Bramble pilot |
+| IP-Adapter identity + ControlNet OpenPose (SDXL) | Installed and smoke-tested |
+| SDXL image editing and masked inpainting | Working — img2img + SDXL Inpainting 0.1 |
+| Speech recognition with faster-whisper small | Working — CPU int8, SRT output |
 | SD 1.5 regression after the model-config changes | Working — live 512×512 test job completed |
-| Automated tests | **42 passed** |
+| Automated tests | **130 passed** |
 
-Verified on this machine: SD 1.5 jobs completed in seconds, saved under `outputs/<project>/<job>/`, and served at `/api/assets/{id}/file`. A scene with a cast and background generated a 512×288 keyframe, then a 320×192 / 5-frame Wan image-to-video clip using that keyframe as frame one (uploaded to ComfyUI's input root). Both outputs were copied into the project, attached to the scene as `keyframe` / `video`, and the clip was confirmed with ffprobe (`h264`, 320×192, 5 frames). In Phase 4 a character canonical image drove an SD 1.5 img2img job at denoise 0.55 (completed, attached as a reference), pose mode correctly reported an image-to-image fallback because no ControlNet model is installed, and a scene keyframe used a cast reference through img2img. AnimateDiff and ControlNet are reported as not runnable with their missing nodes/models named. In Phase 5 Windows SAPI was detected with Microsoft David and Zira, a character voice was saved, a scene line was synthesized to a 2.129 s WAV at 22.05 kHz, a narrator line and imported script lines were generated, and a duplicated project retained dialogue lines, voice settings and remapped audio files. In Phase 6 a two-segment 10-second episode (image + video, 3 dialogue tracks, fade transitions, soft subtitles) exported to 1280×720 H.264/AAC MP4 in **1.53 s** of FFmpeg time (**2.35 s** end-to-end including polling), producing a **1.68 MB** file with H.264 video, AAC stereo audio and `mov_text` subtitles; ffprobe confirmed 10.000 s duration. A duplicated project retained the episode timeline, remapped scene/audio assets and a playable copied MP4.
+Verified on this machine: SD 1.5 jobs completed in seconds, saved under `outputs/<project>/<job>/`, and served at `/api/assets/{id}/file`. A scene with a cast and background generated a 512×288 keyframe, then a 320×192 / 5-frame Wan image-to-video clip using that keyframe as frame one (uploaded to ComfyUI's input root). Both outputs were copied into the project, attached to the scene as `keyframe` / `video`, and the clip was confirmed with ffprobe (`h264`, 320×192, 5 frames). In Phase 4 a character canonical image drove an SD 1.5 img2img job at denoise 0.55 (completed, attached as a reference), pose mode reported an image-to-image fallback at the time because no ControlNet model was installed yet (ControlNet OpenPose SDXL is now installed and smoke-tested), and a scene keyframe used a cast reference through img2img. AnimateDiff is still reported as not runnable with its missing node/model named. In Phase 5 Windows SAPI was detected with Microsoft David and Zira, a character voice was saved, a scene line was synthesized to a 2.129 s WAV at 22.05 kHz, a narrator line and imported script lines were generated, and a duplicated project retained dialogue lines, voice settings and remapped audio files. In Phase 6 a two-segment 10-second episode (image + video, 3 dialogue tracks, fade transitions, soft subtitles) exported to 1280×720 H.264/AAC MP4 in **1.53 s** of FFmpeg time (**2.35 s** end-to-end including polling), producing a **1.68 MB** file with H.264 video, AAC stereo audio and `mov_text` subtitles; ffprobe confirmed 10.000 s duration. A duplicated project retained the episode timeline, remapped scene/audio assets and a playable copied MP4.
 
 **Production story:** *Milo and the Little Light* is a 30.000 s children's motion comic in project `f892aded525b`. It uses five timeline segments (title card + four scenes), zoom/pan camera motion, 4× upscaled keyframes, 7 Kokoro voice lines, original music, three sparkle SFX, and soft subtitles. The final export is **4.02 MB**, 1280×720, 24 fps, H.264 + AAC stereo + `mov_text`, with 7 subtitle cues. The current file is `outputs/f892aded525b/episodes/4a0bb55ef460/episode_2.mp4` (asset `5c79ec9f1398`). The Kokoro voiceover replaced the earlier SAPI read; the old SAPI export remains as `episode.mp4` for comparison.
+
+**SDXL pilot:** *Bramble and the Last Lantern* is a 6:01, 41-shot preschool episode made with the installed SDXL stack: DreamShaper XL + IP-Adapter identity + SDXL Lightning (8 steps, CFG 1), the locally trained `bramble_sdxl` LoRA, Kokoro voices and a local FFmpeg export. It is documented in `docs/projects/pilot_test_01.md` and proves the SDXL/ControlNet/IP-Adapter path end to end.
 
 ---
 
@@ -169,7 +176,7 @@ cd D:\bro\CartoonStudio\backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Current result: **42 passed**.
+Current result: **130 passed**.
 
 ---
 
@@ -190,11 +197,14 @@ Discovered on this machine:
 | Install | `C:\Users\pagau\AppData\Local\Comfy-Desktop\ComfyUI-Installs\Waikhom Studio\ComfyUI` |
 | ComfyUI output | `D:\bro\ComfyUI\Output` |
 | Model dirs | `D:\bro\ComfyUI\Models`, `...\ComfyUI-Shared\models`, `...\Waikhom Studio\ComfyUI\models` |
-| Production checkpoint | **DreamShaper 8** (`DreamShaper_8_pruned.safetensors`) |
-| Base checkpoint | `v1-5-pruned-emaonly-fp16.safetensors` (kept as a fallback) |
-| Upscaler | **4x-UltraSharp** (`4x-UltraSharp.pth`) |
+| Default checkpoint (SDXL) | **DreamShaper XL 1.0** (`DreamShaperXL_1.0.safetensors`) |
+| Other SDXL checkpoints | `sd_xl_base_1.0`, `blue_pencil-XL-v7.0.0`, `JuggernautXL_Ragnarok_ByRunDiffusion`, `SDXL_Inpainting_0.1` |
+| SD 1.5 checkpoints | **DreamShaper 8** (`DreamShaper_8_pruned.safetensors`), `v1-5-pruned-emaonly-fp16` (fallback) |
+| LoRAs | `sdxl_lightning_8step_lora`, `sdxl_lightning_4step_lora`, `bramble_sdxl` (character) |
+| Consistency | ControlNet OpenPose SDXL + IP-Adapter Plus SDXL (ViT-H) + CLIP ViT-H-14 / ViT-bigG-14 |
+| Upscalers | **4x-UltraSharp** (default), `RealESRGAN_x4plus` |
 | Wan 2.2 | `wan2.2_ti2v_5B_fp16.safetensors`, `umt5_xxl_fp8_e4m3fn_scaled.safetensors`, `wan2.2_vae.safetensors` |
-| Custom nodes | no AnimateDiff/IPAdapter custom nodes; ControlNet core nodes exist but no ControlNet models |
+| Custom nodes | `ComfyUI_IPAdapter_plus` installed; no AnimateDiff custom nodes |
 
 Results are shown in **Settings → Discovery**. Use **Auto-discover** to refresh.
 
@@ -239,21 +249,26 @@ Before submission the backend checks:
 
 ## Production image models and upscaling
 
-The image pipeline was upgraded for production-quality Western 2D cartoon output:
+The image pipeline supports a production SDXL path (default) and the legacy SD 1.5 path:
 
 | Model | File | Location | Purpose |
 |---|---|---|---|
-| **DreamShaper 8** | `DreamShaper_8_pruned.safetensors` | `ComfyUI-Shared\models\checkpoints` | Default SD 1.5-family checkpoint for keyframes, characters and backgrounds |
-| **4x-UltraSharp** | `4x-UltraSharp.pth` | `ComfyUI-Shared\models\upscale_models` | 4× detail-preserving upscale |
-| Base SD 1.5 | `v1-5-pruned-emaonly-fp16.safetensors` | same checkpoints folder | Kept as a fallback |
+| **DreamShaper XL 1.0** | `DreamShaperXL_1.0.safetensors` | `D:\bro\ComfyUI\Models\checkpoints` | **Default SDXL checkpoint** for characters, backgrounds, scenes and sheets |
+| DreamShaper 8 | `DreamShaper_8_pruned.safetensors` | `ComfyUI-Shared\models\checkpoints` | Default SD 1.5 checkpoint and automatic fallback |
+| Base SD 1.5 | `v1-5-pruned-emaonly-fp16.safetensors` | same checkpoints folder | Minimal SD 1.5 fallback |
+| **4x-UltraSharp** | `4x-UltraSharp.pth` | `ComfyUI-Shared\models\upscale_models` | Default 4× detail-preserving upscale |
+| Real-ESRGAN x4plus | `RealESRGAN_x4plus.pth` | `D:\bro\ComfyUI\Models\upscale_models` | Alternative upscale for comparison |
+| SDXL-Lightning 8-step / 4-step | `sdxl_lightning_*_lora.safetensors` | `D:\bro\ComfyUI\Models\loras` | Fast mode (8 or 4 steps, CFG 1) |
+| bramble_sdxl | `bramble_sdxl.safetensors` | `D:\bro\ComfyUI\Models\loras` | Locally trained character LoRA (SDXL rank 16) |
 
 What changed:
 
-- `sd15_txt2img`, `sd15_img2img`, `sd15_controlnet_pose` and `animatediff_t2v` now point at **DreamShaper 8**.
-- Production defaults: **28 steps**, **CFG 6.5**, **dpmpp_2m**, **karras**.
-- Character Studio has HD presets (`768×1152`, `768×768`, `768×512`) plus a fast `512×768` option.
-- **Upscale 4×** buttons appear on character media, background views and scene keyframes. The upscale workflow reads the existing asset, runs 4x-UltraSharp, saves a new unique image and attaches it back to the character/background/scene.
-- No Western-cartoon LoRA was added: the available Western-cartoon LoRAs found were FLUX or SDXL, not SD 1.5-compatible. DreamShaper 8 plus the production prompt style and 4x-UltraSharp is the compatible SD 1.5 route.
+- `models.default_architecture` is **`sdxl`**; DreamShaper XL 1.0 is the default checkpoint, and DreamShaper 8 remains the SD 1.5 default and fallback.
+- `sd15_txt2img`, `sd15_img2img`, `sd15_controlnet_pose` and `animatediff_t2v` point at **DreamShaper 8**; all `sdxl_*` workflows point at **DreamShaper XL 1.0**.
+- Production defaults: **28 steps**, **CFG 6.5** (SD 1.5) / **CFG 6** (SDXL), **dpmpp_2m**, **karras**.
+- Character Studio has HD presets (`768×1152`, `768×768`, `768×512`) plus a fast `512×768` option; SDXL presets use 1024×1024, 832×1216, 1216×832.
+- **Upscale 4×** buttons appear on character media, background views and scene keyframes. The upscale workflow reads the existing asset, runs 4x-UltraSharp, saves a new unique image and attaches it back to the character/background/scene. `upscale_4x_real_esrgan` is available as an alternative.
+- The `bramble_sdxl` character LoRA was trained locally on the RTX 4050 from 20 sheet images (SDXL rank 16, 640 px, bf16, UNet-only, 4,800 steps) and is applied at 0.80 strength where the character is prominent.
 - `config/comfyui_extra_model_paths.yaml` points a directly-started ComfyUI at the shared and `D:\bro\ComfyUI\Models` folders. The Comfy Desktop app uses the same directories from its own settings.
 
 Measured on this machine (RTX 4050 Laptop, 6 GB VRAM):
@@ -265,6 +280,10 @@ Measured on this machine (RTX 4050 Laptop, 6 GB VRAM):
 | Upscale 256×144 → 1024×576 | 4x-UltraSharp | **2.1 s** |
 | Upscale 512×512 → 2048×2048 | 4x-UltraSharp | **2.2 s** |
 | Upscale 768×1152 → 3072×4608 | 4x-UltraSharp | **6.2 s** |
+| Upscale 512 → 2048 | Real-ESRGAN x4plus | **5 s** |
+| SDXL ControlNet OpenPose | 512², 8 steps | **14 s** |
+| SDXL IP-Adapter Plus identity | 512², 8 steps | **14 s** |
+| Masked SDXL inpainting | 1024×1024, masked region | **30.7 s** |
 
 The 768×1152 → 3072×4608 upscale is a 14.2 MP result and completed successfully on the 6 GB RTX 4050. Higher resolutions and step counts increase time roughly linearly; 768×1152 is the recommended character production preset on this GPU.
 
@@ -282,11 +301,13 @@ A new **Model Studio** page (`/models`) extends the existing model configuration
 
 Current machine audit:
 
-- Installed checkpoints: **DreamShaper 8** and **SD 1.5 base** only. No SDXL checkpoint.
-- VAEs: Wan 2.2 VAE and ComfyUI `pixel_space`; no external SDXL VAE.
-- LoRAs: none. ControlNet models: none. Custom nodes: none.
-- GPU: RTX 4050 Laptop, 6 GB VRAM; ComfyUI is not currently launched with an explicit low-VRAM flag.
-- **SDXL generation tests are blocked until an SDXL checkpoint is installed and selected.** Cartoon Studio reports this rather than pretending SDXL works.
+- Installed checkpoints: **DreamShaper XL 1.0** (default), SDXL Base 1.0, Blue Pencil XL v7, Juggernaut XL Ragnarok, SDXL Inpainting 0.1, DreamShaper 8 (SD 1.5) and SD 1.5 base.
+- VAEs: each SDXL/SD 1.5 checkpoint uses its embedded VAE; Wan 2.2 has its own VAE file.
+- LoRAs: SDXL-Lightning 8-step and 4-step for fast mode, plus the locally trained `bramble_sdxl` character LoRA.
+- Consistency: ControlNet OpenPose SDXL, IP-Adapter Plus SDXL (ViT-H) and both CLIP Vision encoders are installed; `ComfyUI_IPAdapter_plus` is installed.
+- Upscalers: 4x-UltraSharp (default) and Real-ESRGAN x4plus.
+- GPU: RTX 4050 Laptop, 6 GB VRAM; the app uses low-VRAM mode, tiled VAE and a 1.25 MP pixel budget.
+- **SDXL generation is live-verified:** 1024×576 keyframes with DreamShaper XL + SDXL Lightning (8 steps, CFG 1) produced the 6:01 *Bramble and the Last Lantern* pilot; ControlNet, IP-Adapter and Real-ESRGAN smoke tests also executed.
 
 SDXL workflow templates added:
 
@@ -309,7 +330,7 @@ Character consistency:
 - Optional character-specific LoRA and reference strength are stored in character memory; no database migration is required.
 - Generated characters are never auto-approved.
 
-SD 1.5 remains selectable and is the automatic fallback until an SDXL checkpoint is installed and configured. A live SD 1.5 regression job completed after the model-config changes (512×512, asset `d5c70209dd33`).
+SDXL is the configured default architecture (`models.default_architecture = "sdxl"`). SD 1.5 remains fully selectable and is the automatic fallback when no SDXL checkpoint is configured. A live SD 1.5 regression job completed after the model-config changes (512×512, asset `d5c70209dd33`).
 
 See `docs/integration/SDXL_MODEL_GUIDE.md` for manual model installation, licensing, VRAM expectations and limitations.
 
@@ -330,7 +351,7 @@ Actual results on this machine:
 
 | Test | Result |
 |---|---|
-| Production registry | 7 ready, 3 partial, 1 blocked |
+| Production registry | 7 ready, 3 partial, 1 blocked (earlier snapshot) |
 | Resource status | RTX 4050, 6.0 GB VRAM, 31.71 GB RAM |
 | Free VRAM | Increased free VRAM to 4.9 GB |
 | Local LLM story | Qwen3 8B, 78 s, 4-scene story |
@@ -342,9 +363,13 @@ Actual results on this machine:
 | Kokoro dialogue | 1.75 s WAV |
 | SFX + music | Local assets generated |
 | 1080p export | 1920×1080 H.264/AAC/mov_text, 6.0 s |
-| Automated tests | **42 passed** |
+| SDXL + Lightning + LoRA pilot | *Bramble and the Last Lantern*, 6:01, 41 shots, 1024×576 |
+| ControlNet pose / IP-Adapter identity | Smoke-tested, 512², 8 steps, 14 s each |
+| Masked SDXL inpainting | 1024×1024, 30.7 s, masked region only |
+| faster-whisper ASR | 1.75 s WAV transcribed in 3.45 s on CPU int8 |
+| Automated tests | **130 passed** |
 
-Blocked on this machine: SDXL generation (no checkpoint), image editing (Qwen/FLUX weights missing), IPAdapter/ControlNet (weights missing), speech recognition (no Whisper), lip-sync rendering (no Wav2Lip/SadTalker/Rhubarb), LTX/Hunyuan/CogVideoX and audio-generation model weights.
+Blocked on this machine: image editing with Qwen-Image-Edit/FLUX Kontext (weights missing), speech-to-speech and expressive TTS alternatives (Qwen3-TTS/Chatterbox/CosyVoice not installed), lip-sync rendering (no Wav2Lip/SadTalker/Rhubarb), AnimateDiff (no custom node or motion model), LTX/Hunyuan/CogVideoX and neural audio-generation weights. SDXL, ControlNet, IP-Adapter, Real-ESRGAN and faster-whisper are installed and live-verified.
 
 See `docs/architecture/PRODUCTION_STUDIO.md` and `docs/integration/MODEL_REGISTRY.md`.
 
@@ -497,10 +522,10 @@ The Director page has a model selector next to the conversation picker:
 `GET /api/v1/ai/models` lists both. The choice is stored with the conversation (`provider:model`) and sent with each message. Models without tool calling are shown but disabled, because the Director cannot run production actions without tools. Local turns are slower than OpenAI; a read-only `list_projects` turn on Qwen3 8B took about 129 seconds on this machine.
 
 ```
-ChatGPT / MCP ──▶ Studio MCP (8020, 56 tools) ──▶ ToolRegistry ──▶ shared services
+ChatGPT / MCP ──▶ Studio MCP (8020, 58 tools) ──▶ ToolRegistry ──▶ shared services
 ChatGPT / MCP ──▶ OpenCode MCP (8030, 4 tools) ──▶ local OpenCode agent
 
-In-app Director ──▶ OpenAI or Ollama ──▶ 56 studio tools
+In-app Director ──▶ OpenAI or Ollama ──▶ 58 studio tools
 
 shared services ──▶ SQLite / ComfyUI / Kokoro / FFmpeg / outputs/
 ```
@@ -547,7 +572,7 @@ These are the only path to production data. REST, AI Director and MCP all use th
 - Official SDK `mcp==1.30.0`.
 - Transports: `stdio` and `streamable-http` at `http://127.0.0.1:8020/mcp`.
 - Bearer-token authentication (`MCP_BEARER_TOKEN` or hashed tokens in `mcp_tokens`).
-- Studio MCP exposes 56 tools from the shared registry, 4 resources and 2 prompts. The OpenCode bridge runs separately on 8030 with 4 tools and its own `opencode` token scope.
+- Studio MCP exposes 58 tools from the shared registry, 4 resources and 2 prompts. The OpenCode bridge runs separately on 8030 with 4 tools and its own `opencode` token scope.
 - Structured JSON results, timeouts, idempotency keys, confirmation gates, audit logs.
 - Health endpoint: `http://127.0.0.1:8020/health`.
 - Verified with a real MCP client: `initialize`, `list_tools`, `call_tool`, shared project/character/episode writes and REST reads in both directions.
@@ -741,7 +766,7 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 | Symptom | Check |
 |---|---|
 | Sidebar says ComfyUI offline | ComfyUI Desktop is running; Settings → Test connection; server URL is `http://127.0.0.1:8188` |
-| Workflow shows "unavailable" | Settings → Available Models; the checkpoint/model named in the mapping is missing. Production workflows need `DreamShaper_8_pruned.safetensors`; upscaling needs `4x-UltraSharp.pth` |
+| Workflow shows "unavailable" | Settings → Available Models; the checkpoint/model named in the mapping is missing. SDXL workflows need `DreamShaperXL_1.0.safetensors` (or the selected SDXL checkpoint), SD 1.5 workflows need `DreamShaper_8_pruned.safetensors`, upscaling needs `4x-UltraSharp.pth` |
 | Upscale 4× is disabled or fails | Confirm `4x-UltraSharp.pth` is in `ComfyUI-Shared\models\upscale_models` and ComfyUI can see it in `UpscaleModelLoader`; refresh the Workflows page or restart ComfyUI |
 | Imported workflow lists as `ui` format | Export it from ComfyUI with **Save (API format)** and import that JSON |
 | Port 8010 or 5173 already in use | Run `scripts\stop_all.ps1`, then start again |
@@ -794,7 +819,7 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 | 8 | Automated production and deterministic QC | Complete; AI-assisted QC disabled by default |
 | 9 | AI Director frontend | Complete, production build passes |
 | 10 | Security, token auth, redaction, audit, rate limits | Complete; full OAuth server not implemented |
-| 11 | Automated tests | **42 passed** |
+| 11 | Automated tests | **130 passed** |
 | 12 | Documentation, `.env.example`, startup scripts | Complete |
 
 **All six production phases and the AI integration phases are implemented.** The production pipeline is fully usable without OpenAI. The AI layers are real backend integrations, not mocks, in production code; the automated tests mock external services by design.

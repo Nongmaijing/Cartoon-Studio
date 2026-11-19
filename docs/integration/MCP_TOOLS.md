@@ -4,7 +4,7 @@ The MCP server has separate profiles:
 
 | Profile | Port | Tools |
 |---|---|---|
-| `studio` | 8020 | 56 Cartoon Studio tools |
+| `studio` | 8020 | 58 Cartoon Studio tools |
 | `opencode` | 8030 | 4 OpenCode bridge tools |
 | `all` | 8020 | 60 tools (single-connector compatibility) |
 
@@ -133,13 +133,15 @@ only use it for a short session and click **Disconnect & secure** afterwards. Se
 - `get_character_details`
 - `generate_character_sheet` (confirm)
 - `get_character_references`
-- `approve_character`
+- `set_canonical_asset` (asset must be a reference/pose image linked to the character)
+- `clear_canonical_asset` (blocked while approved)
+- `approve_character` (confirm; requires a valid canonical reference)
 
 ## Story and script
 - `generate_story`
 - `generate_script`
 - `revise_script`
-- `approve_script`
+- `approve_script` (confirm)
 - `create_storyboard`
 - `get_storyboard`
 
@@ -149,7 +151,7 @@ only use it for a short session and click **Disconnect & secure** afterwards. Se
 - `update_scene`
 - `generate_scene_image` (confirm)
 - `regenerate_scene` (confirm)
-- `approve_scene`
+- `approve_scene` (confirm)
 - `reject_scene`
 
 ## Animation

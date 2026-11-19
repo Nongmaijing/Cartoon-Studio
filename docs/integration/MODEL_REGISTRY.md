@@ -1,67 +1,84 @@
 # Model Compatibility and Candidate Report
 
-This is a current, machine-specific report. Candidate rows are research recommendations; verify the exact checkpoint, licence and current version on the official model page before installation. Model Studio can download a small whitelist after explicit licence confirmation and SHA256 verification; nothing is fetched implicitly.
+Machine-specific report, last verified against the model directories and live
+ComfyUI runs on **2026-11-19**. Candidate rows are research recommendations;
+verify the exact checkpoint, licence and current version on the official model
+page before installation. Model Studio can download a small whitelist after
+explicit licence confirmation and SHA256 verification; nothing is fetched
+implicitly.
 
 ## Installed inventory
 
 | Department | Installed | Status |
 |---|---|---|
-| Image checkpoints | DreamShaper 8 (SD 1.5), SD 1.5 base | Ready |
-| SDXL checkpoint | None | Blocked for SDXL |
-| VAE | Wan 2.2 VAE, ComfyUI `pixel_space` | SD 1.5/Wan only |
-| LoRA | None | Character LoRA unavailable |
-| ControlNet | None | Pose conditioning falls back to img2img |
-| Upscaler | 4x-UltraSharp | Ready |
+| SDXL checkpoints | DreamShaper XL 1.0 (default), SDXL Base 1.0, Blue Pencil XL v7, Juggernaut XL Ragnarok | Ready |
+| SD 1.5 checkpoints | DreamShaper 8, SD 1.5 base | Ready (fallback) |
+| VAE | Checkpoint-embedded SDXL/SD 1.5 VAE, Wan 2.2 VAE, ComfyUI `pixel_space` | Ready |
+| LoRA | SDXL-Lightning 8-step, SDXL-Lightning 4-step, `bramble_sdxl` character LoRA | Ready |
+| ControlNet | ControlNet OpenPose SDXL 1.0 | Ready |
+| IP-Adapter | IP-Adapter Plus SDXL (ViT-H) + CLIP ViT-H-14 and ViT-bigG-14 encoders | Ready |
+| Upscaler | 4x-UltraSharp (default), Real-ESRGAN x4plus | Ready |
 | Video | Wan 2.2 TI2V-5B + text encoder + VAE | Ready (slow on 6 GB) |
 | TTS | Kokoro-82M, Windows SAPI | Ready |
 | LLM | Ollama Qwen3 8B, Qwen2.5 7B | Ready |
 | VLM | Ollama Qwen2.5-VL 7B/3B, Qwen3-VL 8B | Ready |
-| ASR | None | Blocked |
+| ASR | faster-whisper small (CPU int8) | Ready |
+| Image editing | SDXL img2img + SDXL Inpainting 0.1 | Ready (masked inpaint verified) |
 | SFX/music models | None | Procedural local synthesis is available |
-| Image editing | Qwen/FLUX nodes present, weights missing | Partial |
-| Custom nodes | None installed | Only ComfyUI core nodes |
+| Custom nodes | ComfyUI_IPAdapter_plus | Installed |
+| Semantic editors | Qwen-Image-Edit, FLUX.1 Kontext | Nodes only — weights missing (optional) |
 
 Hardware: RTX 4050 Laptop, 6 GB VRAM, 32 GB RAM, ComfyUI 0.44.2, PyTorch 2.12.1+cu130, FFmpeg 8.1.1.
+
+Live evidence: SDXL keyframes for the 6:01 *Bramble and the Last Lantern*
+pilot (DreamShaper XL + SDXL Lightning 8-step + `bramble_sdxl` LoRA at 0.80),
+ControlNet/IP-Adapter smoke tests, masked inpainting, Real-ESRGAN upscale and a
+faster-whisper transcription all completed on this machine.
 
 ## Candidate comparison
 
 | Department | Candidate | Source | License | Size | VRAM / hardware | Status | Recommendation |
 |---|---|---|---|---|---|---|---|
-| Image | SDXL Base 1.0 | stabilityai/stable-diffusion-xl-base-1.0 | CreativeML Open RAIL++-M | ~6.9 GB fp16 | 8–10 GB ideal; 6 GB with low-VRAM + tiled VAE | Not installed | Strong base; add a cartoon LoRA |
-| Image | DreamShaper XL | Civitai model page | CreativeML Open RAIL++-M (verify) | ~6.5–7 GB | 6–8 GB with offload | Not installed | Practical first SDXL test |
-| Image | Blue Pencil XL | Civitai model page | CreativeML Open RAIL++-M (verify) | ~6.5 GB | 6–8 GB with offload | Not installed | Line-art/illustration candidate |
-| Image | Juggernaut XL | Civitai model page | CreativeML Open RAIL++-M (verify) | ~6.5–7 GB | 8 GB preferred | Not installed | Comparison only; less flat-cartoon |
-| Image edit | Qwen-Image-Edit | Qwen/Qwen-Image-Edit | Apache 2.0 (verify) | Large 20B-class | High; quantised/offload needed | Nodes only | Strong identity-edit candidate |
+| Image | DreamShaper XL 1.0 | Installed | CreativeML Open RAIL++-M (verify) | 6.60 GB | 6–8 GB with offload | **Ready — default** | Practical first SDXL checkpoint |
+| Image | SDXL Base 1.0 | Installed | CreativeML Open RAIL++-M | ~6.46 GB | 6 GB with low-VRAM + tiled VAE | **Ready** | Stock SDXL comparison |
+| Image | Blue Pencil XL v7 | Installed | CreativeML Open RAIL++-M (verify) | 6.46 GB | 6–8 GB with offload | **Ready** | Line-art/illustration candidate |
+| Image | Juggernaut XL Ragnarok | Installed | CreativeML Open RAIL++-M (verify) | 6.62 GB | 8 GB preferred | **Ready** | Comparison only; less flat-cartoon |
+| Image edit | Qwen-Image-Edit | Qwen/Qwen-Image-Edit | Apache 2.0 (verify) | Large 20B-class | High; quantised/offload needed | Nodes only | Strong identity-edit candidate; not practical on 6 GB |
 | Image edit | FLUX.1 Kontext dev | black-forest-labs/FLUX.1-Kontext-dev | FLUX.1 [dev] Non-Commercial | ~12B-class | High | Nodes only | Do not use commercially without a license |
-| Consistency | IP-Adapter SDXL | tencent-ailab/IP-Adapter | Apache 2.0 code; verify weights | Hundreds of MB | +1–2 GB | Not installed | Recommended for reference conditioning |
-| Consistency | ControlNet SDXL OpenPose | Official ControlNet repositories | Varies | ~1–2.5 GB | +1–2 GB | Nodes only | Pose control candidate |
-| Upscale | 4x-UltraSharp | Installed | Verify model card | 64 MB | 2–4 GB | Ready | Preserves line art; test identity drift |
-| Upscale | Real-ESRGAN x4plus | xinntao/Real-ESRGAN | BSD-3-Clause code | ~64 MB | 2–4 GB | Not installed | Good alternative |
+| Consistency | IP-Adapter SDXL | Installed | Apache 2.0 code; verify weights | 0.79 GB (+2.35 GB encoder) | +1–2 GB | **Ready — smoke-tested** | Plus preset pairs with CLIP ViT-H-14 |
+| Consistency | ControlNet SDXL OpenPose | Installed | Apache 2.0 | 2.33 GB | +1–2 GB | **Ready — smoke-tested** | Pose control |
+| Upscale | 4x-UltraSharp | Installed | Verify model card | 64 MB | 2–4 GB | **Ready — default** | Preserves line art; test identity drift |
+| Upscale | Real-ESRGAN x4plus | Installed | BSD-3-Clause code | ~64 MB | 2–4 GB | **Ready** | Good alternative; verify weights |
 | Upscale | SUPIR | Fanghua-Yu/SUPIR | Apache 2.0 code (verify) | Several GB | 6 GB+ | Not installed | Restoration; may alter linework |
-| Video | Wan 2.2 TI2V-5B | Wan-AI/Wan2.2-TI2V-5B | Apache 2.0 (verify) | 9.3 + 6.3 + 1.3 GB | 6 GB with offload; slow | Installed | Use for short low-res shots |
+| Video | Wan 2.2 TI2V-5B | Installed | Apache 2.0 (verify) | 9.3 + 6.3 + 1.3 GB | 6 GB with offload; slow | **Ready** | Use for short low-res shots |
 | Video | LTX-Video | Lightricks/LTX-Video | OpenRAIL-M-style (verify) | 4–12 GB | 6–12 GB | Nodes only | Best next 6 GB video candidate |
 | Video | HunyuanVideo | tencent/HunyuanVideo | Tencent Community License | 15–30 GB | 24 GB+ | Nodes only | Experimental; not practical on 6 GB |
 | Video | CogVideoX-2B/5B | THUDM/CogVideoX-2b | Apache 2.0 (verify) | 5–12 GB | 8–16 GB | Not installed | Constrained-hardware experiment |
-| Voice | Kokoro-82M | Installed | Apache 2.0 | 310 MB + voices | CPU | Ready | Current production voice |
+| Voice | Kokoro-82M | Installed | Apache 2.0 | 310 MB + voices | CPU | **Ready — production** | Current production voice |
 | Voice | Qwen3-TTS | Qwen official release | Apache 2.0 (verify) | Varies | CPU/GPU | Not installed | Multilingual candidate |
 | Voice | Chatterbox | resemble-ai/chatterbox | MIT (verify) | Varies | CPU/GPU | Not installed | Expressive TTS candidate |
 | Voice | CosyVoice | FunAudioLLM/CosyVoice | Apache 2.0 (verify) | Varies | CPU/GPU | Not installed | More setup than Kokoro |
-| ASR | faster-whisper | SYSTRAN/faster-whisper | MIT | 75 MB–1.5 GB | CPU/small GPU | Not installed | Recommended for subtitles/lip-sync |
+| ASR | faster-whisper small | Installed | MIT | 461 MB | CPU int8 | **Ready — verified** | Subtitles/lip-sync alignment |
 | SFX | AudioGen | facebookresearch/audiocraft | CC-BY-NC 4.0 weights (verify) | 1–3 GB | 4–8 GB | Not installed | Research only; verify commercial terms |
 | Music | MusicGen | facebookresearch/audiocraft | CC-BY-NC 4.0 weights (verify) | 1–6 GB | 4–8 GB | Not installed | Research only; verify commercial terms |
 | Music | ACE-Step | ace-step/ACE-Step | Apache 2.0 (verify) | Several GB | 6 GB+ | Nodes only | Longer music beds |
 | Music | Stable Audio Open | stabilityai/stable-audio-open-1.0 | Stability AI Community License | 2–4 GB | 4–8 GB | Not installed | Verify commercial thresholds |
-| LLM | Qwen3 8B | Ollama | Apache 2.0 (verify) | 5.2 GB | CPU/GPU | Ready | Story/script generation |
-| VLM | Qwen2.5-VL 7B/3B | Ollama | Apache 2.0 (verify) | 6.0/3.2 GB | CPU/GPU | Ready | Visual QC |
+| LLM | Qwen3 8B | Ollama | Apache 2.0 (verify) | 5.2 GB | CPU/GPU | **Ready** | Story/script generation |
+| VLM | Qwen2.5-VL 7B/3B | Ollama | Apache 2.0 (verify) | 6.0/3.2 GB | CPU/GPU | **Ready** | Visual QC |
 | Lip-sync | Wav2Lip / SadTalker / Rhubarb | Official repos | Varies; often research/non-commercial | Varies | 2–8 GB | Not installed | Cue layer exists; rendering blocked |
+
+Installed LoRAs not listed above: `sdxl_lightning_8step_lora.safetensors` and
+`sdxl_lightning_4step_lora.safetensors` (fast mode) and `bramble_sdxl.safetensors`
+(locally trained character LoRA, SDXL rank 16, 81.5 MB).
 
 ## Compatibility notes
 
 - ComfyUI 0.44.2 includes core nodes for Wan, LTX, Hunyuan, Qwen Image Edit, FLUX Kontext, ACE-Step, Stable Audio and audio latents. Node presence does **not** mean weights are installed.
 - The Model Studio distinguishes `nodes_available`, `weights_installed`, and department `status`.
-- SDXL workflows are structurally valid but not runnable until an SDXL checkpoint is selected.
+- SDXL workflows are runnable with DreamShaper XL 1.0 as the configured default; SD 1.5 remains a selectable fallback.
 - Wan is the only installed video family with weights.
-- No custom nodes are installed; any candidate requiring custom nodes needs an operator installation step.
+- `ComfyUI_IPAdapter_plus` is installed (commit `a0f451a`), so IP-Adapter is available; other custom-node candidates still need an operator installation step.
+- The IP-Adapter Plus preset requires the 1280-dim CLIP ViT-H-14 encoder. The 1664-dim ViT-bigG-14 file only works with the VIT-G preset; mixing them fails at `Resampler.proj_in`.
 - Some ComfyUI API nodes (e.g., `HunyuanImageEditApi`, `QwenImageEditApi`, `FluxKontextProImageNode`) are cloud/API-backed and require separate credentials; they are not local weights.
 
 ## Licensing caution
@@ -73,14 +90,21 @@ Licenses change. Do not rely on this table as legal advice. Check the exact chec
 - HunyuanVideo and Stable Audio have community-license restrictions.
 - Community Civitai checkpoints/LoRAs vary; verify each model card.
 
-## Recommended smallest practical set
+## Current production set
 
-1. **SDXL character model**: SDXL Base or DreamShaper XL.
-2. **SDXL VAE**: madebyollin/sdxl-vae-fp16-fix or the checkpoint VAE.
-3. **Cartoon style LoRA** with clear commercial terms.
-4. **LTX-Video** as the next 6 GB-friendly video candidate.
-5. **faster-whisper small/medium** for ASR and lip-sync alignment.
-6. **Real-ESRGAN** as an upscaling comparison.
-7. Only then consider Qwen-Image-Edit, IP-Adapter and ControlNet weights.
+Installed and live-verified:
+
+1. **SDXL character model**: DreamShaper XL 1.0 (default), with SDXL Base/Blue Pencil/Juggernaut as alternatives.
+2. **SDXL VAE**: checkpoint-embedded VAE, tiled decode on 6 GB.
+3. **Fast mode**: SDXL-Lightning 8-step (default) or 4-step LoRA, CFG 1.
+4. **Character consistency**: IP-Adapter Plus SDXL (ViT-H) + CLIP ViT-H-14, and ControlNet OpenPose SDXL.
+5. **Character LoRA**: `bramble_sdxl` trained locally for the pilot.
+6. **Upscaling**: 4x-UltraSharp (default) and Real-ESRGAN x4plus.
+7. **Video**: Wan 2.2 TI2V-5B for short low-res shots.
+8. **Voice**: Kokoro-82M; Windows SAPI fallback.
+9. **ASR**: faster-whisper small on CPU int8.
+10. **LLM/VLM**: Ollama Qwen3 8B and Qwen2.5-VL 7B/3B.
+
+Still optional / not practical on this hardware: Qwen-Image-Edit, FLUX Kontext, LTX-Video, HunyuanVideo, CogVideoX, Qwen3-TTS/Chatterbox/CosyVoice, AudioGen/MusicGen/Stable Audio Open, and lip-sync rendering (Wav2Lip/SadTalker/Rhubarb). Downloading “all” would add tens of GB of unused or experimental weight and require manual license review.
 
 Do not install everything at once. Test one family at a time and measure VRAM/time with the resource manager.

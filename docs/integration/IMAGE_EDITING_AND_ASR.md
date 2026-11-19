@@ -167,8 +167,9 @@ The check is advisory. It does not approve characters and does not change the ca
 1. the SDXL img2img workflow is runnable, and
 2. a local vision model (or a configured OpenAI vision model) is available.
 
-IP-Adapter and SDXL ControlNet remain optional upgrades and are listed as recommendations,
-not blockers. Reference-locked generation still uses canonical reference + img2img + seed.
+IP-Adapter and SDXL ControlNet are now installed and smoke-tested, and are
+selected explicitly for reference-locked or pose-locked work. Reference-locked
+generation still defaults to canonical reference + img2img + seed.
 
 ### Measured test
 
@@ -261,4 +262,4 @@ Added in `backend/tests/test_editing_and_speech.py`:
 - target-size scaling without upscaling
 - vision comparison input guard
 
-Full suite: **49 passed**.
+Full suite: **130 passed**.

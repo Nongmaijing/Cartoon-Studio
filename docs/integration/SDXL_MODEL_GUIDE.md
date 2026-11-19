@@ -285,7 +285,9 @@ these images were promoted to a canonical reference.
 - Turnaround prompt composition currently yields multi-view sheets and drifts from the
   character’s wardrobe; see the quality findings above. This is a prompt/QA issue, not an
   SDXL loading issue.
-- SDXL ControlNet/IPAdapter models are not installed; pose/reference work uses img2img.
+- SDXL ControlNet OpenPose and IP-Adapter Plus are installed and smoke-tested; SDXL
+  reference-locked work can use IP-Adapter, and pose-locked work uses ControlNet.
+  Plain img2img remains the default reference path.
 - SDXL video is not part of this upgrade; Wan 2.2 remains the video path.
 - Quick generation of 8-expression/8-pose sheets is serialized by the single-worker queue and
   can take a long time (~30 s per image plus model switching). Start with one view before

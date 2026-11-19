@@ -12,7 +12,7 @@ instance is started.
 
 ```text
 ChatGPT
-  ├─ Studio connector (8020 /mcp)   → 56 Cartoon Studio tools
+  ├─ Studio connector (8020 /mcp)   → 58 Cartoon Studio tools
   └─ OpenCode connector (8030 /mcp) → 4 OpenCode tools
                                         └─ opencode api → local agent in D:\bro
 ```
@@ -23,7 +23,7 @@ The MCP server supports three profiles:
 
 | Profile | Tools | Default port | Purpose |
 |---|---|---|---|
-| `studio` | 56 studio tools | 8020 | Cartoon Studio production |
+| `studio` | 58 studio tools | 8020 | Cartoon Studio production |
 | `opencode` | 4 OpenCode tools | 8030 | Agent collaboration |
 | `all` | 60 tools | 8020 | Backwards-compatible single connector |
 

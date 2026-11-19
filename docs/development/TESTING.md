@@ -50,9 +50,9 @@ Performed on the RTX 4050 6 GB machine:
 | Kokoro dialogue | 1.75 s WAV, asset `f9726f170b8f` |
 | SFX/music | assets `5e0aca751713`, `9462863c6639` |
 | 1080p export | 1920×1080 H.264/AAC/mov_text, 6.0 s, asset `8ce8ace5a449` |
-| SDXL | blocked — no checkpoint |
-| Image editing / IPAdapter / ControlNet | blocked — missing weights |
-| ASR / lip-sync rendering | blocked — missing models |
+| SDXL | ready — DreamShaper XL 1.0 default; pilot rendered |
+| Image editing / IPAdapter / ControlNet | ready — SDXL inpaint, IP-Adapter Plus and ControlNet OpenPose installed |
+| ASR / lip-sync rendering | ASR ready (faster-whisper small); lip-sync rendering still blocked |
 
 ## Manual integration checks
 1. Backend health: `/api/health`, `/api/v1/health`.

@@ -122,7 +122,7 @@ Run `scripts\stop_all.ps1` to stop Cartoon Studio ports, then restart.
 - Keep batch size 1 and tiled VAE enabled.
 - Restart ComfyUI with `--lowvram` (or `--normalvram`) on the 6 GB GPU.
 - Close other GPU applications.
-- SDXL ControlNet/IPAdapter add extra VRAM; install only if needed.
+- SDXL ControlNet/IPAdapter are installed and add ~1–2 GB VRAM each when used; expect reduced headroom during pose or identity jobs.
 
 ## SDXL workflow is valid but not runnable
 
