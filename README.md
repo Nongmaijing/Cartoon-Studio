@@ -22,6 +22,7 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | Projects: create, rename, duplicate, archive, archive visibility, active-project selection | Working |
 | Character Studio: profiles, reference views, expressions, poses, media library | Working |
 | Character identity: canonical image, img2img consistency generation, adjustable denoise | Working |
+| Cutout + 2.5D parallax: character segmentation, layered camera moves | Working — `rembg` + FFmpeg |
 | Pose control: ControlNet OpenPose SDXL installed, img2img fallback otherwise | Working |
 | AnimateDiff readiness and text-to-video template | Detected / template only until nodes + motion model exist |
 | Background Studio: reusable environments, aspect ratios/resolutions, media library | Working |
@@ -50,7 +51,7 @@ Local, dark-themed production app for Western 2D cartoon episodes, powered by an
 | SDXL image editing and masked inpainting | Working — img2img + SDXL Inpainting 0.1 |
 | Speech recognition with faster-whisper small | Working — CPU int8, SRT output |
 | SD 1.5 regression after the model-config changes | Working — live 512×512 test job completed |
-| Automated tests | **135 passed** |
+| Automated tests | **142 passed** |
 
 Verified on this machine: SD 1.5 jobs completed in seconds, saved under `outputs/<project>/<job>/`, and served at `/api/assets/{id}/file`. A scene with a cast and background generated a 512×288 keyframe, then a 320×192 / 5-frame Wan image-to-video clip using that keyframe as frame one (uploaded to ComfyUI's input root). Both outputs were copied into the project, attached to the scene as `keyframe` / `video`, and the clip was confirmed with ffprobe (`h264`, 320×192, 5 frames). In Phase 4 a character canonical image drove an SD 1.5 img2img job at denoise 0.55 (completed, attached as a reference), pose mode reported an image-to-image fallback at the time because no ControlNet model was installed yet (ControlNet OpenPose SDXL is now installed and smoke-tested), and a scene keyframe used a cast reference through img2img. AnimateDiff is still reported as not runnable with its missing node/model named. In Phase 5 Windows SAPI was detected with Microsoft David and Zira, a character voice was saved, a scene line was synthesized to a 2.129 s WAV at 22.05 kHz, a narrator line and imported script lines were generated, and a duplicated project retained dialogue lines, voice settings and remapped audio files. In Phase 6 a two-segment 10-second episode (image + video, 3 dialogue tracks, fade transitions, soft subtitles) exported to 1280×720 H.264/AAC MP4 in **1.53 s** of FFmpeg time (**2.35 s** end-to-end including polling), producing a **1.68 MB** file with H.264 video, AAC stereo audio and `mov_text` subtitles; ffprobe confirmed 10.000 s duration. A duplicated project retained the episode timeline, remapped scene/audio assets and a playable copied MP4.
 
@@ -176,7 +177,7 @@ cd D:\bro\CartoonStudio\backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Current result: **135 passed**.
+Current result: **142 passed**.
 
 ---
 
@@ -353,6 +354,7 @@ profiles, voice direction and audio standards are documented in:
 
 - `docs/operations/CAPABILITY_ASSESSMENT.md` — hardware limits and measured timings
 - `docs/operations/PRODUCTION_PLAYBOOK.md` — the repeatable episode workflow
+- `docs/operations/CUTOUT_PIPELINE.md` — cutout and 2.5D parallax API
 
 ### Production Studio milestone
 
@@ -387,7 +389,7 @@ Actual results on this machine:
 | ControlNet pose / IP-Adapter identity | Smoke-tested, 512², 8 steps, 14 s each |
 | Masked SDXL inpainting | 1024×1024, 30.7 s, masked region only |
 | faster-whisper ASR | 1.75 s WAV transcribed in 3.45 s on CPU int8 |
-| Automated tests | **135 passed** |
+| Automated tests | **142 passed** |
 
 Blocked on this machine: image editing with Qwen-Image-Edit/FLUX Kontext (weights missing), speech-to-speech and expressive TTS alternatives (Qwen3-TTS/Chatterbox/CosyVoice not installed), lip-sync rendering (no Wav2Lip/SadTalker/Rhubarb), AnimateDiff (no custom node or motion model), LTX/Hunyuan/CogVideoX and neural audio-generation weights. SDXL, ControlNet, IP-Adapter, Real-ESRGAN and faster-whisper are installed and live-verified.
 
@@ -681,6 +683,9 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 | POST | `/api/v1/llm/vision-review` | Structured visual review of an image asset |
 | POST | `/api/v1/lip-sync/lines/{id}/generate` | Generate editable viseme cues |
 | GET/PUT | `/api/v1/lip-sync/lines/{id}` | Read/update viseme cues |
+| GET | `/api/v1/motion/presets` | Cutout/parallax camera presets and defaults |
+| POST | `/api/v1/motion/cutout` | Create a transparent character cutout |
+| POST | `/api/v1/motion/parallax` | Render a layered 2.5D clip |
 | POST | `/api/v1/production/episodes/{id}/shot-plan` | Build shot-level plan and estimate |
 | GET | `/api/v1/production/episodes/{id}/shot-plan` | Read the shot plan |
 | GET | `/api/v1/production/episodes/{id}/estimate` | Preview episode resource estimate |
@@ -839,7 +844,7 @@ ChatGPT custom connectors support OAuth or "No authentication"; they do **not** 
 | 8 | Automated production and deterministic QC | Complete; AI-assisted QC disabled by default |
 | 9 | AI Director frontend | Complete, production build passes |
 | 10 | Security, token auth, redaction, audit, rate limits | Complete; full OAuth server not implemented |
-| 11 | Automated tests | **135 passed** |
+| 11 | Automated tests | **142 passed** |
 | 12 | Documentation, `.env.example`, startup scripts | Complete |
 
 **All six production phases and the AI integration phases are implemented.** The production pipeline is fully usable without OpenAI. The AI layers are real backend integrations, not mocks, in production code; the automated tests mock external services by design.

@@ -40,12 +40,15 @@ Use all four deliberately; do not ask one model to do everything.
 | Type | What it is | How it is made | Cost |
 |---|---|---|---|
 | **A — Plate** | Environment with no characters | SDXL background workflow, then a slow push/pan | ~10–25 s |
-| **B — Cutout** | Character over a plate, limited puppet motion | Character rendered on plain background, cut out, layered over plate, 2–3 pose swaps | Image cost + minutes in edit |
+| **B — Cutout** | Character over a plate, limited puppet motion | Character rendered on plain background, segmented with `rembg`, layered over plate, 2–3 pose swaps | ~3 s cutout + ~1.5 s per 6 s clip |
 | **C — Keyframe** | Cast staged inside the location | SDXL + canonical reference + IP-Adapter (+ LoRA) | ~15–30 s |
 | **D — Motion insert** | A short generated shot | Wan 2.2 image-to-video from an approved keyframe | 2–4 min per 3 s |
 
 For a 7-minute episode, a healthy mix is roughly **40% A, 25% B, 30% C, 5% D**.
 Type D is for reveals, weather, firelight and emotional beats — not dialogue.
+
+Type B is implemented as a service: see `CUTOUT_PIPELINE.md` for the cutout and
+parallax endpoints, camera presets and quality rules.
 
 ## 3. Pipeline and gates
 

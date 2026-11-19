@@ -23,6 +23,7 @@ implicitly.
 | LLM | Ollama Qwen3 8B, Qwen2.5 7B | Ready |
 | VLM | Ollama Qwen2.5-VL 7B/3B, Qwen3-VL 8B | Ready |
 | ASR | faster-whisper small (CPU int8) | Ready |
+| Segmentation | rembg U²-Net (character cutouts) | Ready |
 | Image editing | SDXL img2img + SDXL Inpainting 0.1 | Ready (masked inpaint verified) |
 | SFX/music models | None | Procedural local synthesis is available |
 | Custom nodes | ComfyUI_IPAdapter_plus | Installed |
