@@ -175,6 +175,24 @@ def character_negative_prompt(
     kind: str, label: str | None = None, clothing: str | None = None
 ) -> str:
     """Return a view-aware negative prompt for single-image character references."""
+    if kind == "cutout":
+        return ", ".join(
+            part
+            for part in (
+                "animal, animals, hedgehog, pet, companion, extra character, crowd, "
+                "shadow, drop shadow, cast shadow, floor shadow, contact shadow, "
+                "floor, ground, ground plane, mud, sand, gradient background, "
+                "sage background, olive background, grey background, muted background, "
+                "studio backdrop, scenery, background scenery, "
+                "multiple views, multiple angles, turnaround sheet, "
+                "cropped head, cropped hair, cut off head, cropped feet, cut off feet, "
+                "missing feet, close-up, portrait, headshot, "
+                "text, watermark, signature",
+                ", ".join(_accessory_exclusions(clothing)) if clothing else "",
+                NEGATIVE_DEFAULT,
+            )
+            if part
+        )
     if kind not in {"reference", "turnaround"}:
         return NEGATIVE_DEFAULT
 
@@ -337,7 +355,22 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
     clothing_positive = _strip_negated_accessories(clothing)
 
     label = _clean(label)
-    if kind == "expression":
+    if kind == "cutout":
+        parts.append("full body 2D cartoon character, head to toe, entire body visible")
+        for value in (description, appearance_positive):
+            if value:
+                parts.append(value)
+        if clothing_positive:
+            parts.append(f"wearing {clothing_positive}")
+        if style:
+            parts.append(style)
+        parts.append("one character only, alone, no animals, no props")
+        parts.append("(flat solid bright chroma green background:1.5), (no shadow, no floor, no ground:1.4)")
+        parts.append(
+            "full-length wide framing, lots of headroom above the head, both feet fully visible, "
+            f"{label or 'standing naturally'}, no text"
+        )
+    elif kind == "expression":
         for value in (description, appearance_positive):
             if value:
                 parts.append(value)

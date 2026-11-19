@@ -33,6 +33,7 @@ from .routers import (
     lip_sync,
     mcp_support,
     models,
+    motion,
     production,
     projects,
     providers,
@@ -124,6 +125,7 @@ app.include_router(resources.router)
 app.include_router(registry.router)
 app.include_router(mcp_support.router)
 app.include_router(models.router)
+app.include_router(motion.router)
 app.include_router(health.router)
 app.include_router(llm.router)
 app.include_router(lip_sync.router)

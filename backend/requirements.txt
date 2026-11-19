@@ -19,6 +19,9 @@ numpy==2.4.6
 # Local speech recognition
 faster-whisper==1.2.1
 
+# Character cutouts (U²-Net segmentation)
+rembg==2.0.87
+
 # AI Director and MCP
 openai==3.48.0
 mcp==1.30.0

@@ -145,7 +145,7 @@ class DialogueImportRequest(BaseModel):
 
 
 class CharacterGenerateRequest(BaseModel):
-    kind: Literal["reference", "expression", "pose"] = "reference"
+    kind: Literal["reference", "expression", "pose", "cutout"] = "reference"
     label: str = Field(default="", max_length=80)
     prompt: str | None = None
     negative_prompt: str | None = None
