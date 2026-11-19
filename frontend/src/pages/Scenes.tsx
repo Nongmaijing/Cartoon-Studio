@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useProject } from "../ProjectContext";
 import type { Background, Character, Job, MediaItem, Scene, SceneReference, WorkflowEntry } from "../types";
 import { Alert, EmptyState, PageHeader, ProgressBar, StatusBadge } from "../components/Ui";
+import { AutoGrowTextarea } from "../components/AutoGrowTextarea";
 import { JobTable } from "../components/JobTable";
 import { QueuePanel, elapsedSeconds, etaSeconds, formatDuration } from "../components/QueuePanel";
 
@@ -11,6 +12,7 @@ const IMAGE_SIZES = [
   { label: "512×288 · fast", width: 512, height: 288 },
   { label: "768×432 · balanced", width: 768, height: 432 },
   { label: "1024×576 · detailed", width: 1024, height: 576 },
+  { label: "1216×832 · SDXL", width: 1216, height: 832 },
 ];
 
 const VIDEO_SIZES = [
@@ -80,6 +82,8 @@ export default function Scenes() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newForm, setNewForm] = useState<SceneForm>({ ...EMPTY_FORM });
@@ -93,7 +97,7 @@ export default function Scenes() {
   const [kind, setKind] = useState<"keyframe" | "video">("keyframe");
   const [imageWorkflow, setImageWorkflow] = useState("");
   const [videoWorkflow, setVideoWorkflow] = useState("");
-  const [imageSizeIndex, setImageSizeIndex] = useState(1);
+  const [imageSizeIndex, setImageSizeIndex] = useState(2);
   const [videoSizeIndex, setVideoSizeIndex] = useState(0);
   const [steps, setSteps] = useState(28);
   const [cfg, setCfg] = useState(6.5);
@@ -177,24 +181,66 @@ export default function Scenes() {
     if (!selectedId) {
       setCharacters([]);
       setBackgrounds([]);
+      setWorkflows([]);
+      setSetupLoading(false);
       return;
     }
-    Promise.all([api.characters(selectedId), api.backgrounds(selectedId), api.workflows()])
-      .then(([characterList, backgroundList, workflowList]) => {
-        setCharacters(characterList);
-        setBackgrounds(backgroundList);
-        setWorkflows(workflowList);
-        const images = workflowList.filter(
-          (workflow) => workflow.format === "api" && workflow.kind === "image" && workflow.runnable !== false
-        );
-        const clips = workflowList.filter(
-          (workflow) => workflow.format === "api" && workflow.kind === "video" && workflow.runnable !== false
-        );
-        setImageWorkflow((current) => current || images[0]?.id || "");
-        setVideoWorkflow((current) => current || clips[0]?.id || "");
+    setSetupLoading(true);
+    Promise.allSettled([
+      api.characters(selectedId),
+      api.backgrounds(selectedId),
+      api.workflows(),
+    ])
+      .then(([characterResult, backgroundResult, workflowResult]) => {
+        const failures: string[] = [];
+        if (characterResult.status === "fulfilled") setCharacters(characterResult.value);
+        else failures.push(`characters: ${String(characterResult.reason)}`);
+        if (backgroundResult.status === "fulfilled") setBackgrounds(backgroundResult.value);
+        else failures.push(`backgrounds: ${String(backgroundResult.reason)}`);
+        if (workflowResult.status === "fulfilled") setWorkflows(workflowResult.value);
+        else failures.push(`workflows: ${String(workflowResult.reason)}`);
+        if (failures.length) setError(failures.join(" · "));
       })
-      .catch((exc) => setError(exc instanceof Error ? exc.message : String(exc)));
+      .finally(() => setSetupLoading(false));
   }, [selectedId]);
+
+  const imageWorkflowNeedsReference = (workflow?: WorkflowEntry) =>
+    Boolean(workflow?.roles?.includes("input_image"));
+  const selectedImageWorkflow = workflows.find((workflow) => workflow.id === imageWorkflow);
+
+  useEffect(() => {
+    if (!workflows.length) return;
+    const compatible = workflows.filter(
+      (workflow) =>
+        workflow.format === "api" &&
+        workflow.kind === "image" &&
+        workflow.runnable !== false &&
+        imageWorkflowNeedsReference(workflow) === Boolean(referenceAssetId)
+    );
+    const current = workflows.find((workflow) => workflow.id === imageWorkflow);
+    if (current && imageWorkflowNeedsReference(current) === Boolean(referenceAssetId)) return;
+    const preferredIds = referenceAssetId
+      ? ["sdxl_img2img", "sdxl_controlnet_pose", "sd15_img2img"]
+      : ["sdxl_txt2img", "sd15_txt2img"];
+    const preferred = preferredIds
+      .map((id) => compatible.find((workflow) => workflow.id === id))
+      .find(Boolean);
+    setImageWorkflow(preferred?.id || compatible[0]?.id || "");
+  }, [workflows, referenceAssetId, imageWorkflow]);
+
+  useEffect(() => {
+    if (!workflows.length) return;
+    const compatible = workflows.filter(
+      (workflow) =>
+        workflow.format === "api" &&
+        workflow.kind === "video" &&
+        workflow.runnable !== false &&
+        imageWorkflowNeedsReference(workflow) === Boolean(startImage)
+    );
+    const current = workflows.find((workflow) => workflow.id === videoWorkflow);
+    if (current && imageWorkflowNeedsReference(current) === Boolean(startImage)) return;
+    setVideoWorkflow(compatible[0]?.id || "");
+  }, [workflows, startImage, videoWorkflow]);
 
   useEffect(() => {
     loadMedia(selectedSceneId);
@@ -229,8 +275,16 @@ export default function Scenes() {
     setCastIds(selected.cast.map((member) => member.character_id));
     setImageWorkflow(selected.settings.workflow_id || "");
     setVideoWorkflow(selected.settings.video_workflow_id || "");
-    setImageSizeIndex(nearestSizeIndex(IMAGE_SIZES, selected.settings.width, selected.settings.height));
-    setVideoSizeIndex(nearestSizeIndex(VIDEO_SIZES, selected.settings.video_width, selected.settings.video_height));
+    setImageSizeIndex(
+      selected.settings.width && selected.settings.height
+        ? nearestSizeIndex(IMAGE_SIZES, selected.settings.width, selected.settings.height)
+        : 2
+    );
+    setVideoSizeIndex(
+      selected.settings.video_width && selected.settings.video_height
+        ? nearestSizeIndex(VIDEO_SIZES, selected.settings.video_width, selected.settings.video_height)
+        : 0
+    );
     setSteps(selected.settings.steps ?? 24);
     setCfg(selected.settings.cfg ?? 7);
     setSeed(selected.settings.seed ?? -1);
@@ -356,6 +410,33 @@ export default function Scenes() {
     }
   };
 
+  const approveSelectedScene = async () => {
+    if (!selected) return;
+    if (!window.confirm(`Approve the saved version of “${selected.name}”? Unsaved edits are not included.`)) return;
+    setError("");
+    try {
+      await api.approveScene(selected.id);
+      await refreshScenes();
+      setNotice("Scene approved.");
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    }
+  };
+
+  const rejectSelectedScene = async () => {
+    if (!selected) return;
+    const notes = window.prompt("Why is this scene being rejected?");
+    if (notes === null) return;
+    setError("");
+    try {
+      await api.rejectScene(selected.id, notes);
+      await refreshScenes();
+      setNotice("Scene rejected.");
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    }
+  };
+
   const toggleCast = async (characterId: string) => {
     if (!selected) return;
     setError("");
@@ -375,6 +456,17 @@ export default function Scenes() {
     if (!selected) return;
     setError("");
     setNotice("");
+    if (kind === "keyframe") {
+      if (!selectedImageWorkflow) {
+        setError("No image workflow is selected.");
+        return;
+      }
+      if (imageWorkflowNeedsReference(selectedImageWorkflow) !== Boolean(referenceAssetId)) {
+        setError("Choose a reference image for this workflow, or select a text-to-image workflow.");
+        return;
+      }
+    }
+    setGenerating(true);
     const imageSize = IMAGE_SIZES[imageSizeIndex];
     const videoSize = VIDEO_SIZES[videoSizeIndex];
     try {
@@ -399,9 +491,13 @@ export default function Scenes() {
       setLastPrompt(result.prompt);
       if (result.fallback) {
         setNotice("Pose mode requested, but ControlNet is not installed. Falling back to image-to-image with the pose reference.");
+      } else if (result.mode === "ipadapter-identity") {
+        setNotice("Identity mode: IP-Adapter conditioned the keyframe on the selected reference.");
       }
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -489,7 +585,9 @@ export default function Scenes() {
             </div>
             <div className="field span-2">
               <label>Description</label>
-              <textarea
+              <AutoGrowTextarea
+                minRows={4}
+                maxHeight={320}
                 value={newForm.description}
                 placeholder="Milo steps out of the trees and spots a glowing mushroom."
                 onChange={(event) => setNewForm({ ...newForm, description: event.target.value })}
@@ -555,9 +653,20 @@ export default function Scenes() {
                   <h2>{selected.name}</h2>
                   <div className="panel-sub mono">{selected.id}</div>
                 </div>
-                <button className="btn sm primary" onClick={saveScene} disabled={saving || !form.name.trim()}>
-                  {saving ? "Saving…" : "Save scene"}
-                </button>
+                <div className="row">
+                  <span className={`chip ${selected.approval_status === "approved" ? "exp" : selected.approval_status === "rejected" ? "pose" : ""}`}>
+                    {selected.approval_status || "draft"}
+                  </span>
+                  <button className="btn sm" onClick={approveSelectedScene} disabled={selected.approval_status === "approved"}>
+                    Approve
+                  </button>
+                  <button className="btn sm ghost" onClick={rejectSelectedScene} disabled={selected.approval_status === "rejected"}>
+                    Reject
+                  </button>
+                  <button className="btn sm primary" onClick={saveScene} disabled={saving || !form.name.trim()}>
+                    {saving ? "Saving…" : "Save scene"}
+                  </button>
+                </div>
               </div>
 
               <div className="form-grid">
@@ -578,15 +687,19 @@ export default function Scenes() {
                 </div>
                 <div className="field span-2">
                   <label>Description</label>
-                  <textarea
+                  <AutoGrowTextarea
+                    minRows={4}
+                    maxHeight={320}
                     value={form.description}
+                    placeholder="What the audience sees in this shot: setting, mood, key props."
                     onChange={(event) => setForm({ ...form, description: event.target.value })}
                   />
                 </div>
                 <div className="field span-2">
                   <label>Action</label>
-                  <textarea
-                    style={{ minHeight: 62 }}
+                  <AutoGrowTextarea
+                    minRows={3}
+                    maxHeight={240}
                     value={form.action}
                     placeholder="Milo crouches, then leaps over the log."
                     onChange={(event) => setForm({ ...form, action: event.target.value })}
@@ -618,17 +731,20 @@ export default function Scenes() {
                       import and voice it in Voice &amp; Dialogue
                     </Link>
                   </label>
-                  <textarea
-                    style={{ minHeight: 62 }}
+                  <AutoGrowTextarea
+                    minRows={3}
+                    maxHeight={320}
                     value={form.dialogue}
-                    placeholder="Milo: “Whoa… it's glowing!”"
+                    placeholder="Character: “A line of dialogue.”"
                     onChange={(event) => setForm({ ...form, dialogue: event.target.value })}
                   />
                 </div>
               </div>
 
               <div className="section-title" style={{ marginTop: 16 }}>Cast</div>
-              {characters.length === 0 ? (
+              {setupLoading ? (
+                <div className="media-empty">Loading cast and backgrounds…</div>
+              ) : characters.length === 0 ? (
                 <div className="media-empty">
                   No characters in this project. <Link className="link" to="/characters">Create a character</Link> first.
                 </div>
@@ -682,7 +798,7 @@ export default function Scenes() {
               <div className="panel-head">
                 <div>
                   <h2>Generate Shot</h2>
-                  <div className="panel-sub">DreamShaper 8 keyframes, Wan 2.2 motion</div>
+                  <div className="panel-sub">Local keyframe model, Wan 2.2 motion</div>
                 </div>
                 {activeJob && <StatusBadge status={activeJob.status} />}
               </div>
@@ -731,9 +847,21 @@ export default function Scenes() {
                     }
                   >
                     {(kind === "keyframe" ? imageWorkflows : videoWorkflows).map((workflow) => (
-                      <option key={workflow.id} value={workflow.id} disabled={workflow.runnable === false}>
+                      <option
+                        key={workflow.id}
+                        value={workflow.id}
+                        disabled={
+                          workflow.runnable === false ||
+                          imageWorkflowNeedsReference(workflow) !==
+                            Boolean(kind === "keyframe" ? referenceAssetId : startImage)
+                        }
+                      >
                         {workflow.name}
                         {workflow.runnable === false ? " (unavailable)" : ""}
+                        {imageWorkflowNeedsReference(workflow) !==
+                        Boolean(kind === "keyframe" ? referenceAssetId : startImage)
+                          ? " (needs reference)"
+                          : ""}
                       </option>
                     ))}
                   </select>
@@ -907,8 +1035,8 @@ export default function Scenes() {
                     ? "Image-to-video: the keyframe becomes frame one."
                     : "Text-to-video: Wan invents the motion from the prompt."}
                 </span>
-                <button className="btn primary" onClick={generate} disabled={isActive(activeJob)}>
-                  {isActive(activeJob) ? "Generating…" : kind === "keyframe" ? "Generate keyframe" : "Animate shot"}
+                <button className="btn primary" onClick={generate} disabled={generating || isActive(activeJob)}>
+                  {generating ? "Queuing…" : isActive(activeJob) ? "Generating…" : kind === "keyframe" ? "Generate keyframe" : "Animate shot"}
                 </button>
               </div>
 

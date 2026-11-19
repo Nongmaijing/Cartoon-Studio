@@ -12,14 +12,14 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Dashboard", icon: "dashboard" },
   { to: "/projects", label: "Projects", icon: "projects" },
-  { to: "/characters", label: "Characters", icon: "characters", phase: "2" },
-  { to: "/backgrounds", label: "Backgrounds", icon: "backgrounds", phase: "2" },
-  { to: "/scenes", label: "Scenes", icon: "scenes", phase: "3" },
-  { to: "/animation", label: "Animation", icon: "animation", phase: "3" },
-  { to: "/director", label: "AI Director", icon: "director", phase: "AI" },
-  { to: "/models", label: "Model Studio", icon: "models", phase: "IMG" },
-  { to: "/voice", label: "Voice & Dialogue", icon: "voice", phase: "5" },
-  { to: "/episode", label: "Episode Editor", icon: "episode", phase: "6" },
+  { to: "/characters", label: "Characters", icon: "characters" },
+  { to: "/backgrounds", label: "Backgrounds", icon: "backgrounds" },
+  { to: "/scenes", label: "Scenes", icon: "scenes" },
+  { to: "/animation", label: "Animation", icon: "animation" },
+  { to: "/director", label: "AI Director", icon: "director" },
+  { to: "/models", label: "Model Studio", icon: "models" },
+  { to: "/voice", label: "Voice & Dialogue", icon: "voice" },
+  { to: "/episode", label: "Episode Editor", icon: "episode" },
   { to: "/workflows", label: "Workflows", icon: "workflows" },
   { to: "/settings", label: "Settings", icon: "settings" },
 ];
@@ -66,7 +66,6 @@ export function Sidebar({ connected }: { connected: boolean | null }) {
           >
             <Icon name={item.icon} />
             <span className="nav-label">{item.label}</span>
-            {item.phase && <span className="nav-phase">P{item.phase}</span>}
           </NavLink>
         ))}
       </nav>
@@ -77,9 +76,11 @@ export function Sidebar({ connected }: { connected: boolean | null }) {
           <span className="conn-text">{text}</span>
         </div>
         <div className="meta">
-          AI Integration · v0.7.0
+          v0.7.0
           <br />
-          Local models only
+          Local-first production
+          <br />
+          ComfyUI + optional AI
         </div>
       </div>
     </aside>

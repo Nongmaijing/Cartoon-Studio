@@ -7,6 +7,7 @@ import type {
   AIDirectorModel,
   AIMessage,
   ChatGPTTunnelStatus,
+  Character,
   Episode,
   ProductionOverview,
   ProductionRun,
@@ -49,6 +50,8 @@ export default function Director() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
   const [scenes, setScenes] = useState<Scene[]>([]);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [projectLoading, setProjectLoading] = useState(true);
   const [overview, setOverview] = useState<ProductionOverview | null>(null);
   const [run, setRun] = useState<ProductionRun | null>(null);
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
@@ -70,6 +73,26 @@ export default function Director() {
 
   const selectedProject = projects.find((project) => project.id === selectedId) || null;
   const selectedEpisode = episodes.find((episode) => episode.id === selectedEpisodeId) || null;
+  const scriptApproved = Boolean(selectedEpisode?.production?.script_approved);
+  const storyboardIds = new Set(
+    (selectedEpisode?.storyboard || []).map((item) => String(item.scene_id || "")).filter(Boolean)
+  );
+  const productionScenes = storyboardIds.size
+    ? scenes.filter((scene) => storyboardIds.has(scene.id))
+    : scenes;
+  const productionCastIds = new Set(
+    productionScenes.flatMap((scene) => (scene.cast || []).map((member) => member.character_id))
+  );
+  const unapprovedCast = characters.filter(
+    (character) => productionCastIds.has(character.id) && character.approval_status !== "approved"
+  );
+  const unapprovedScenes = productionScenes.filter((scene) => scene.approval_status !== "approved");
+  const productionReady =
+    Boolean(selectedEpisodeId) &&
+    productionScenes.length > 0 &&
+    scriptApproved &&
+    unapprovedScenes.length === 0 &&
+    unapprovedCast.length === 0;
   const providers: ProviderInfo[] = overview?.providers?.providers || [];
 
   const scrollMessages = useCallback(() => {
@@ -109,10 +132,16 @@ export default function Director() {
   const loadScenes = useCallback(async () => {
     if (!selectedId) {
       setScenes([]);
+      setCharacters([]);
       return;
     }
     try {
-      setScenes(await api.scenes(selectedId));
+      const [sceneList, characterList] = await Promise.all([
+        api.scenes(selectedId),
+        api.characters(selectedId),
+      ]);
+      setScenes(sceneList);
+      setCharacters(characterList);
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
     }
@@ -122,11 +151,14 @@ export default function Director() {
     if (!selectedId) {
       setEpisodes([]);
       setScenes([]);
+      setCharacters([]);
       setConversations([]);
       setConversationId("");
       setOverview(null);
+      setProjectLoading(false);
       return;
     }
+    setProjectLoading(true);
     try {
       const [episodeList, conversationList, health, modelList] = await Promise.all([
         api.episodes(selectedId),
@@ -158,6 +190,8 @@ export default function Director() {
       await Promise.all([loadOverview(), loadScenes()]);
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setProjectLoading(false);
     }
   }, [selectedId, loadOverview, loadScenes]);
 
@@ -476,8 +510,12 @@ export default function Director() {
       setError("Select an episode before starting production.");
       return;
     }
-    if (scenes.length === 0) {
-      setError("Create at least one scene before starting production.");
+    if (productionScenes.length === 0) {
+      setError("Create at least one scene for this episode before starting production.");
+      return;
+    }
+    if (!productionReady) {
+      setError("Approve the script, scenes and cast before starting production.");
       return;
     }
     if (!window.confirm("Start the automated production run for this episode? This can queue image, audio and render jobs.")) {
@@ -490,7 +528,7 @@ export default function Director() {
         project_id: selectedId,
         episode_id: selectedEpisodeId,
         plan: {
-          scenes: scenes.map((scene) => ({
+          scenes: productionScenes.map((scene) => ({
             scene_id: scene.id,
             motion: "zoom_in",
             transition: "fade",
@@ -535,6 +573,7 @@ export default function Director() {
   };
 
   const approveScene = async (sceneId: string) => {
+    if (!window.confirm("Approve this scene for production?")) return;
     try {
       await api.approveScene(sceneId);
       setNotice("Scene approved.");
@@ -638,8 +677,7 @@ export default function Director() {
                 <option value={60}>1 hour</option>
                 <option value={120}>2 hours</option>
                 <option value={240}>4 hours</option>
-                <option value={480}>8 hours</option>
-                <option value={0}>Never auto-stop</option>
+                <option value={480}>8 hours (max)</option>
               </select>
               <button
                 className="btn primary"
@@ -755,8 +793,7 @@ export default function Director() {
                 <option value={60}>1 hour</option>
                 <option value={120}>2 hours</option>
                 <option value={240}>4 hours</option>
-                <option value={480}>8 hours</option>
-                <option value={0}>Never auto-stop</option>
+                <option value={480}>8 hours (max)</option>
               </select>
               <button
                 className="btn primary"
@@ -960,7 +997,7 @@ export default function Director() {
           <div className="field" style={{ marginBottom: 10 }}>
             <label>Episode</label>
             <select value={selectedEpisodeId} onChange={(event) => setSelectedEpisodeId(event.target.value)}>
-              <option value="">No episode</option>
+              <option value="">{projectLoading ? "Loading episodes…" : "No episode"}</option>
               {episodes.map((episode) => (
                 <option key={episode.id} value={episode.id}>
                   {episode.name} · {episode.status}
@@ -970,7 +1007,7 @@ export default function Director() {
           </div>
 
           <div className="row" style={{ marginBottom: 12 }}>
-            <button className="btn primary sm" onClick={startProduction} disabled={!selectedEpisodeId || scenes.length === 0}>
+            <button className="btn primary sm" onClick={startProduction} disabled={!productionReady}>
               Start production
             </button>
             {run && (
@@ -987,6 +1024,22 @@ export default function Director() {
               </>
             )}
           </div>
+
+          {!productionReady && (
+            <div className="stack" style={{ marginBottom: 12 }}>
+              {!scriptApproved && <Alert kind="warn">Approve the script on the Episode Editor before starting production.</Alert>}
+              {unapprovedScenes.length > 0 && (
+                <Alert kind="warn">
+                  {unapprovedScenes.length} scene(s) are not approved. Approve them in Scene Review first.
+                </Alert>
+              )}
+              {unapprovedCast.length > 0 && (
+                <Alert kind="warn">
+                  {unapprovedCast.length} cast member(s) are not approved: {unapprovedCast.map((c) => c.name).join(", ")}.
+                </Alert>
+              )}
+            </div>
+          )}
 
           <div className="stat-grid ai-stats">
             <div className="stat"><div className="stat-value">{overview?.scenes.total ?? 0}</div><div className="stat-label">Scenes</div></div>
@@ -1039,7 +1092,9 @@ export default function Director() {
                 <div className="tiny muted">{provider.notes}</div>
               </div>
             ))}
-            {providers.length === 0 && <div className="tiny muted">Provider status unavailable.</div>}
+            {providers.length === 0 && (
+              <div className="tiny muted">{projectLoading ? "Loading provider status…" : "Provider status unavailable."}</div>
+            )}
           </div>
 
           <div className="tiny muted" style={{ marginTop: 10 }}>
@@ -1058,7 +1113,9 @@ export default function Director() {
           <button className="btn sm ghost" onClick={loadScenes}>Refresh</button>
         </div>
         {scenes.length === 0 ? (
-          <div className="media-empty">No scenes yet. Create scenes or use the Director to generate a storyboard.</div>
+          <div className="media-empty">
+            {projectLoading ? "Loading scenes…" : "No scenes yet. Create scenes or use the Director to generate a storyboard."}
+          </div>
         ) : (
           <div className="stack">
             {scenes.map((scene) => (

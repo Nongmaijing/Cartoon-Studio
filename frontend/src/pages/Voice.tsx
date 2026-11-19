@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useProject } from "../ProjectContext";
 import type { Character, DialogueLine, Scene, VoiceEngine, VoiceEnginesResponse } from "../types";
 import { Alert, EmptyState, PageHeader } from "../components/Ui";
+import { AutoGrowTextarea } from "../components/AutoGrowTextarea";
 
 const EMOTIONS = [
   "neutral",
@@ -38,6 +39,7 @@ function formatSeconds(ms: number): string {
 }
 
 function EngineCard({ engine }: { engine: VoiceEngine }) {
+  const young = engine.voices.filter((voice) => voice.age === "Young").length;
   return (
     <div className={`engine-card${engine.available ? " available" : ""}`}>
       <div className="row between">
@@ -48,13 +50,22 @@ function EngineCard({ engine }: { engine: VoiceEngine }) {
       </div>
       <div className="tiny muted" style={{ marginTop: 6 }}>{engine.notes}</div>
       {engine.voices.length > 0 && (
-        <div className="chip-row" style={{ marginTop: 8 }}>
-          {engine.voices.map((voice) => (
-            <span className="chip" key={voice.id} title={[voice.locale, voice.gender, voice.age].filter(Boolean).join(" · ")}>
-              {voice.name}
-            </span>
-          ))}
-        </div>
+        <>
+          <div className="tiny muted" style={{ marginTop: 6 }}>
+            {engine.voices.length} voices{young ? ` · ${young} young/child` : ""}
+          </div>
+          <div className="chip-row" style={{ marginTop: 6, maxHeight: 132, overflowY: "auto", paddingRight: 4 }}>
+            {engine.voices.map((voice) => (
+              <span
+                className={`chip${voice.age && voice.age !== "Adult" ? " exp" : ""}`}
+                key={voice.id}
+                title={[voice.locale, voice.gender, voice.age].filter(Boolean).join(" · ")}
+              >
+                {voice.name}
+              </span>
+            ))}
+          </div>
+        </>
       )}
       {engine.executable && (
         <div className="tiny mono wrap" style={{ marginTop: 8, opacity: 0.7 }}>{engine.executable}</div>
@@ -190,8 +201,9 @@ function LineCard({ line, characters, engines, busy, onBusy, onChanged, onDelete
         <span className="chip">{emotion}</span>
       </div>
 
-      <textarea
-        style={{ minHeight: 58 }}
+      <AutoGrowTextarea
+        minRows={2}
+        maxHeight={260}
         value={text}
         onChange={(event) => setText(event.target.value)}
         placeholder="Dialogue text"
@@ -431,6 +443,31 @@ export default function Voice() {
   const activeEngine = engineById(engines, voiceForm.engine);
   const voiceChoices = activeEngine?.voices || [];
 
+  const applyVoicePreset = (preset: "child-us" | "child-uk" | "deep" | "reset") => {
+    const kokoro = engineById(engines, "kokoro");
+    if (preset === "reset" || !kokoro?.available) {
+      setVoiceForm((current) => ({ ...current, rate: 0, pitch: 0 }));
+      return;
+    }
+    if (preset === "deep") {
+      setVoiceForm((current) => ({
+        ...current,
+        engine: "kokoro",
+        voice: "am_onyx",
+        rate: -1,
+        pitch: -18,
+      }));
+      return;
+    }
+    setVoiceForm((current) => ({
+      ...current,
+      engine: "kokoro",
+      voice: preset === "child-us" ? "af_sky" : "bf_lily",
+      rate: 1,
+      pitch: 32,
+    }));
+  };
+
   const saveVoice = async () => {
     if (!selectedCharacter) return;
     setSavingVoice(true);
@@ -589,6 +626,14 @@ export default function Voice() {
             </div>
           </div>
 
+          {characters.length > 0 && characters.some((character) => !character.voice_name) && (
+            <div style={{ marginBottom: 12 }}>
+              <Alert kind="warn">
+                Some characters have no voice assigned. Assign a voice before generating dialogue audio.
+              </Alert>
+            </div>
+          )}
+
           {characters.length === 0 ? (
             <div className="media-empty">
               No characters in this project. <Link className="link" to="/characters">Create a character</Link> first.
@@ -656,6 +701,7 @@ export default function Voice() {
                         {voiceChoices.map((choice) => (
                           <option key={choice.id} value={choice.id}>
                             {choice.name}{choice.locale ? ` · ${choice.locale}` : ""}{choice.gender ? ` · ${choice.gender}` : ""}
+                            {choice.age && choice.age !== "Adult" ? ` · ${choice.age}` : ""}
                           </option>
                         ))}
                         {voiceForm.voice && !voiceChoices.some((choice) => choice.id === voiceForm.voice) && (
@@ -663,6 +709,27 @@ export default function Voice() {
                         )}
                       </select>
                     )}
+                  </div>
+                  <div className="field span-2">
+                    <label>Voice presets</label>
+                    <div className="row" style={{ flexWrap: "wrap" }}>
+                      <button className="btn sm" onClick={() => applyVoicePreset("child-us")}>
+                        Child · US
+                      </button>
+                      <button className="btn sm" onClick={() => applyVoicePreset("child-uk")}>
+                        Child · UK
+                      </button>
+                      <button className="btn sm" onClick={() => applyVoicePreset("deep")}>
+                        Deep adult
+                      </button>
+                      <button className="btn sm ghost" onClick={() => applyVoicePreset("reset")}>
+                        Reset pitch
+                      </button>
+                    </div>
+                    <div className="tiny muted">
+                      Pitch is applied by resampling, so it raises the formants too — that is what makes a voice read as a child.
+                      +32% is about +3.8 semitones.
+                    </div>
                   </div>
                   <div className="field">
                     <label>Rate ({voiceForm.rate})</label>
@@ -787,10 +854,11 @@ export default function Voice() {
                 </div>
                 <div className="field span-2">
                   <label>Line text</label>
-                  <textarea
-                    style={{ minHeight: 62 }}
+                  <AutoGrowTextarea
+                    minRows={3}
+                    maxHeight={240}
                     value={newLine.text}
-                    placeholder="Milo: “Whoa… it's glowing!”"
+                    placeholder="Character: “A line of dialogue.”"
                     onChange={(event) => setNewLine({ ...newLine, text: event.target.value })}
                   />
                 </div>
@@ -801,7 +869,16 @@ export default function Voice() {
                   <button className="btn sm" onClick={importScript} disabled={importing}>
                     {importing ? "Importing…" : "Import scene text"}
                   </button>
-                  <button className="btn sm" onClick={generateAll} disabled={generatingAll || lines.length === 0}>
+                  <button
+                    className="btn sm"
+                    onClick={generateAll}
+                    disabled={generatingAll || lines.length === 0 || characters.some((character) => !character.voice_name)}
+                    title={
+                      characters.some((character) => !character.voice_name)
+                        ? "Assign a voice to every character first"
+                        : undefined
+                    }
+                  >
                     {generatingAll ? "Generating…" : "Generate all voices"}
                   </button>
                 </div>

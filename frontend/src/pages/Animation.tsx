@@ -103,13 +103,30 @@ export default function Animation() {
 
   const videoWorkflows = engines?.workflows ?? [];
   const imageToVideo = useMemo(
-    () => videoWorkflows.filter((workflow) => /i2v|image/i.test(`${workflow.id} ${workflow.name}`)),
+    () => videoWorkflows.filter((workflow) => /\bi2v\b|image-to-video/i.test(`${workflow.id} ${workflow.name}`)),
     [videoWorkflows]
   );
   const textToVideo = useMemo(
-    () => videoWorkflows.filter((workflow) => /t2v|text/i.test(`${workflow.id} ${workflow.name}`)),
+    () => videoWorkflows.filter((workflow) => /\bt2v\b|text-to-video/i.test(`${workflow.id} ${workflow.name}`)),
     [videoWorkflows]
   );
+
+  const needsStartImage = (workflow?: (typeof videoWorkflows)[number]) =>
+    /\bi2v\b|image-to-video/i.test(`${workflow?.id || ""} ${workflow?.name || ""}`);
+  const selectedWorkflow = videoWorkflows.find((workflow) => workflow.id === workflowId);
+  const workflowCompatible = Boolean(selectedWorkflow) && needsStartImage(selectedWorkflow) === Boolean(startImage);
+
+  useEffect(() => {
+    if (!videoWorkflows.length) return;
+    if (selectedWorkflow && needsStartImage(selectedWorkflow) === Boolean(startImage)) return;
+    const candidate = videoWorkflows.find(
+      (workflow) =>
+        workflow.valid &&
+        workflow.runnable !== false &&
+        needsStartImage(workflow) === Boolean(startImage)
+    );
+    if (candidate) setWorkflowId(candidate.id);
+  }, [videoWorkflows, startImage, selectedWorkflow]);
 
   const loadEngines = useCallback(async () => {
     try {
@@ -202,6 +219,10 @@ export default function Animation() {
 
   const submit = async () => {
     if (!selectedId || !prompt.trim()) return;
+    if (!workflowCompatible) {
+      setError("Choose a workflow that matches the start-image setting.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     setNotice("");
@@ -357,9 +378,18 @@ export default function Animation() {
                   <option
                     key={workflow.id}
                     value={workflow.id}
-                    disabled={!workflow.valid || workflow.runnable === false}
+                    disabled={
+                      !workflow.valid ||
+                      workflow.runnable === false ||
+                      needsStartImage(workflow) !== Boolean(startImage)
+                    }
                   >
                     {workflow.name}
+                    {needsStartImage(workflow) !== Boolean(startImage)
+                      ? startImage
+                        ? " (text-to-video)"
+                        : " (needs start image)"
+                      : ""}
                     {!workflow.valid
                       ? " (invalid)"
                       : workflow.runnable === false
@@ -482,10 +512,11 @@ export default function Animation() {
           <div className="row between" style={{ marginTop: 12 }}>
             <span className="tiny muted">
               {startImage ? "Image-to-video: the chosen image becomes frame one." : "Text-to-video: Wan invents the motion."}
+              {!workflowCompatible && " The selected workflow does not match the start-image setting."}
               {imageToVideo.length === 0 && startImage ? " No i2v workflow found." : ""}
               {textToVideo.length === 0 && !startImage ? " No t2v workflow found." : ""}
             </span>
-            <button className="btn primary" onClick={submit} disabled={submitting || isActive(activeJob) || !prompt.trim()}>
+            <button className="btn primary" onClick={submit} disabled={submitting || isActive(activeJob) || !prompt.trim() || !workflowCompatible}>
               {submitting ? "Queuing…" : isActive(activeJob) ? "Generating…" : "Generate clip"}
             </button>
           </div>

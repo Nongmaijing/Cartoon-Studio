@@ -16,6 +16,7 @@ import type {
   EnginesResponse,
   Episode,
   EpisodeTimeline,
+  FastModeStatus,
   Job,
   MediaItem,
   ModelCatalog,
@@ -43,21 +44,33 @@ import type {
 const BASE = "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(BASE + path, {
-    headers: { "Content-Type": "application/json", ...(options?.headers || {}) },
-    ...options,
-  });
-  if (!response.ok) {
-    let detail = `${response.status} ${response.statusText}`;
-    try {
-      const body = await response.json();
-      detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
-    } catch {
-      // keep the status text
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 120000);
+  try {
+    const response = await fetch(BASE + path, {
+      headers: { "Content-Type": "application/json", ...(options?.headers || {}) },
+      ...options,
+      signal: options?.signal ?? controller.signal,
+    });
+    if (!response.ok) {
+      let detail = `${response.status} ${response.statusText}`;
+      try {
+        const body = await response.json();
+        detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
+      } catch {
+        // keep the status text
+      }
+      throw new Error(detail);
     }
-    throw new Error(detail);
+    return (await response.json()) as T;
+  } catch (exc) {
+    if (exc instanceof DOMException && exc.name === "AbortError") {
+      throw new Error("The request timed out. Check the backend and try again.");
+    }
+    throw exc;
+  } finally {
+    window.clearTimeout(timer);
   }
-  return (await response.json()) as T;
 }
 
 export const api = {
@@ -175,6 +188,7 @@ export const api = {
       seed?: number;
       workflow_id?: string;
       reference_asset_id?: string;
+      use_reference?: boolean;
       reference_mode?: "identity" | "pose";
       denoise?: number;
       control_strength?: number;
@@ -429,6 +443,19 @@ export const api = {
   createEpisode: (payload: { project_id: string; name: string; description?: string }) =>
     request<Episode>("/episodes", { method: "POST", body: JSON.stringify(payload) }),
   episode: (id: string) => request<Episode>(`/episodes/${id}`),
+  scriptState: (id: string) =>
+    request<{
+      episode_id: string;
+      current_sha256: string;
+      current_revision_id: string | null;
+      latest_revision_id: string | null;
+      latest_revision_number: number;
+      script_approved: boolean;
+      has_script: boolean;
+      storyboard_stale: boolean;
+    }>(`/episodes/${id}/script-revisions/state`),
+  approveScript: (id: string) =>
+    request<Record<string, any>>(`/episodes/${id}/approve-script`, { method: "POST" }),
   updateEpisode: (id: string, payload: { name?: string; description?: string }) =>
     request<Episode>(`/episodes/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteEpisode: (id: string) =>
@@ -451,6 +478,12 @@ export const api = {
     request<SettingsPayload>("/settings", { method: "PUT", body: JSON.stringify(config) }),
   modelCatalog: () => request<ModelCatalog>("/v1/models/catalog"),
   modelConfig: () => request<ModelConfig>("/v1/models/config"),
+  fastMode: () => request<FastModeStatus>("/v1/models/fast-mode"),
+  setFastMode: (payload: { enabled?: boolean; steps?: number; strength?: number }) =>
+    request<FastModeStatus>("/v1/models/fast-mode", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
   saveModelConfig: (models: ModelConfig) =>
     request<{ models: ModelConfig }>("/v1/models/config", {
       method: "PUT",
@@ -515,8 +548,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ asset_id: assetId, model }),
     }),
-  getShotPlan: (episodeId: string) =>
-    request<ShotPlan>(`/v1/production/episodes/${episodeId}/shot-plan`),
+  getShotPlan: async (episodeId: string) => {
+    try {
+      return await request<ShotPlan>(`/v1/production/episodes/${episodeId}/shot-plan`);
+    } catch (exc) {
+      const message = exc instanceof Error ? exc.message : String(exc);
+      if (message.startsWith("404")) return null as unknown as ShotPlan;
+      throw exc;
+    }
+  },
   buildShotPlan: (episodeId: string) =>
     request<ShotPlan>(`/v1/production/episodes/${episodeId}/shot-plan`, { method: "POST" }),
   estimateEpisode: (episodeId: string) =>

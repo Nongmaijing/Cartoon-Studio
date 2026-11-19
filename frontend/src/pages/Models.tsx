@@ -3,6 +3,7 @@ import { api } from "../api";
 import { useProject } from "../ProjectContext";
 import type {
   Asset,
+  FastModeStatus,
   ModelCatalog,
   ModelConfig,
   ModelDownload,
@@ -81,6 +82,8 @@ export default function Models() {
   const [licenseAccepted, setLicenseAccepted] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const [fastMode, setFastMode] = useState<FastModeStatus | null>(null);
+  const [fastBusy, setFastBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,6 +108,11 @@ export default function Models() {
         setRegistry(await api.productionRegistry());
       } catch {
         setRegistry(null);
+      }
+      try {
+        setFastMode(await api.fastMode());
+      } catch {
+        setFastMode(null);
       }
       setError("");
     } catch (exc) {
@@ -239,6 +247,25 @@ export default function Models() {
       presets[presetKey] = { ...(presets[presetKey] || {}), [field]: value };
       return { ...current, presets };
     });
+  };
+
+  const toggleFastMode = async (payload: { enabled?: boolean; steps?: number }) => {
+    setFastBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const next = await api.setFastMode(payload);
+      setFastMode(next);
+      setNotice(
+        next.enabled
+          ? `Fast mode on · ${next.steps} steps, CFG ${next.cfg}, ${next.sampler}/${next.scheduler}.`
+          : "Fast mode off. SDXL renders use the full step count again."
+      );
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setFastBusy(false);
+    }
   };
 
   const freeVram = async () => {
@@ -425,7 +452,7 @@ export default function Models() {
               <span className="v">{archLabel(String(active.architecture || "unknown"))}</span>
               <span className="k">Checkpoint</span>
               <span className="v mono wrap">{active.checkpoint || "not configured"}</span>
-              <span className="k">Workflow</span>
+              <span className="k">Character workflow</span>
               <span className="v mono">{active.workflow_id || "not resolved"}</span>
               <span className="k">Fallback</span>
               <span className="v">{active.fallback_reason || "none"}</span>
@@ -568,6 +595,42 @@ export default function Models() {
                   </div>
                 </div>
 
+                <div className="section-title">SDXL Lightning fast mode</div>
+                <div className="row" style={{ flexWrap: "wrap", gap: 14, alignItems: "center" }}>
+                  <label className="tiny">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(fastMode?.enabled)}
+                      disabled={fastBusy || !fastMode}
+                      onChange={(event) => toggleFastMode({ enabled: event.target.checked })}
+                    />{" "}
+                    Fast mode
+                  </label>
+                  <label className="tiny">
+                    Steps
+                    <select
+                      value={fastMode?.steps ?? 8}
+                      disabled={fastBusy || !fastMode}
+                      onChange={(event) =>
+                        toggleFastMode({ steps: Number(event.target.value), enabled: fastMode?.enabled ?? false })
+                      }
+                    >
+                      <option value={8}>8 steps</option>
+                      <option value={4}>4 steps</option>
+                    </select>
+                  </label>
+                  <span className={`chip ${fastMode?.lora_installed ? "exp" : ""}`}>
+                    {fastMode?.lora_installed ? "Lightning LoRA installed" : "Lightning LoRA missing"}
+                  </span>
+                </div>
+                <div className="tiny muted" style={{ marginTop: 6 }}>
+                  Renders SDXL image jobs at {fastMode?.steps ?? 8} steps, CFG {fastMode?.cfg ?? 1},{" "}
+                  {fastMode?.sampler ?? "euler"}/{fastMode?.scheduler ?? "sgm_uniform"} with{" "}
+                  <span className="mono">{fastMode?.lora || "the Lightning LoRA"}</span>. Roughly 3–4× faster on the
+                  4050. Skips SD 1.5 jobs and any character that already has its own LoRA. IP-Adapter and ControlNet
+                  stack on top unchanged.
+                </div>
+
                 <div className="section-title">Workflows</div>
                 <div className="form-grid">
                   {WORKFLOW_KEYS.map(({ key, label }) => (
@@ -587,23 +650,23 @@ export default function Models() {
 
                 <div className="section-title">6 GB VRAM options</div>
                 <div className="row" style={{ flexWrap: "wrap", gap: 14 }}>
-                  <label className="tiny">
-                    <input type="checkbox" checked={config.low_vram} onChange={(event) => setModel("low_vram", event.target.checked)} /> Low-VRAM mode
+                  <label className="tiny" title="ComfyUI launch flag — change it in the launcher">
+                    <input type="checkbox" checked={config.low_vram} readOnly disabled /> Low-VRAM mode
                   </label>
-                  <label className="tiny">
-                    <input type="checkbox" checked={config.tiled_vae} onChange={(event) => setModel("tiled_vae", event.target.checked)} /> Tiled VAE decode
+                  <label className="tiny" title="Applied by the SDXL workflow templates">
+                    <input type="checkbox" checked={config.tiled_vae} readOnly disabled /> Tiled VAE decode
                   </label>
-                  <label className="tiny">
+                  <label className="tiny" title="ComfyUI launch flag — change it in the launcher">
                     CPU offload
-                    <select value={config.cpu_offload} onChange={(event) => setModel("cpu_offload", event.target.value)}>
+                    <select value={config.cpu_offload} disabled>
                       <option value="auto">Auto</option>
                       <option value="lowvram">--lowvram</option>
                       <option value="novram">--novram</option>
                     </select>
                   </label>
-                  <label className="tiny">
+                  <label className="tiny" title="ComfyUI launch flag — change it in the launcher">
                     Attention
-                    <select value={config.attention} onChange={(event) => setModel("attention", event.target.value)}>
+                    <select value={config.attention} disabled>
                       <option value="default">Default</option>
                       <option value="pytorch">PyTorch cross-attention</option>
                       <option value="split">Split cross-attention</option>
@@ -611,11 +674,12 @@ export default function Models() {
                   </label>
                   <label className="tiny">
                     Batch size
-                    <input type="number" min={1} max={1} value={1} readOnly style={{ width: 54 }} />
+                    <input type="number" min={1} max={1} value={1} readOnly disabled style={{ width: 54 }} />
                   </label>
                 </div>
                 <div className="tiny muted">
-                  Low-VRAM mode and attention are ComfyUI launch flags; they are reported and recommended here but not changed automatically. Tiled VAE is applied by the SDXL workflow templates. Precision is determined by the checkpoint and ComfyUI; no separate precision switch is forced.
+                  These are ComfyUI launch-level settings and are read-only here. Low-VRAM and attention must be set in the ComfyUI launcher; tiled VAE is baked into the SDXL workflow templates. Active runtime flag:{" "}
+                  <strong>{flags.lowvram ? "low-VRAM" : flags.normalvram ? "normal VRAM" : "reported by ComfyUI"}</strong>.
                 </div>
               </div>
             )}

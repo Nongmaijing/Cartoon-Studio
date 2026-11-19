@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useProject } from "../ProjectContext";
 import type { Character, CharacterSheetStatus, Job, MediaItem } from "../types";
 import { Alert, EmptyState, PageHeader, ProgressBar, StatusBadge } from "../components/Ui";
+import { AutoGrowTextarea } from "../components/AutoGrowTextarea";
 
 type Kind = "reference" | "expression" | "pose";
 
@@ -15,6 +16,7 @@ const LABEL_OPTIONS: Record<Kind, string[]> = {
 
 const SIZE_PRESETS = [
   { label: "Full body HD · 768×1152", width: 768, height: 1152 },
+  { label: "Square SDXL · 1024×1024", width: 1024, height: 1024 },
   { label: "Portrait · 640×640", width: 640, height: 640 },
   { label: "Wide · 768×512", width: 768, height: 512 },
   { label: "Square HD · 768×768", width: 768, height: 768 },
@@ -78,6 +80,7 @@ export default function Characters() {
   const [sheetId, setSheetId] = useState("");
   const [charModel, setCharModel] = useState<Record<string, any>>({});
   const [savingCharModel, setSavingCharModel] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   // Attach existing asset
   const [attachId, setAttachId] = useState("");
@@ -261,6 +264,7 @@ export default function Characters() {
 
   const saveProfile = async () => {
     if (!selected) return;
+    const wasApproved = characterApproved;
     setSavingProfile(true);
     setError("");
     try {
@@ -272,7 +276,11 @@ export default function Characters() {
         appearance: profile.appearance.trim(),
       });
       await refreshCharacters();
-      setNotice("Character profile saved.");
+      setNotice(
+        wasApproved
+          ? "Character profile saved. The previous approval was reset because the design changed."
+          : "Character profile saved."
+      );
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
     } finally {
@@ -284,6 +292,7 @@ export default function Characters() {
     if (!selected) return;
     setError("");
     setNotice("");
+    setGenerating(true);
     const size = SIZE_PRESETS[sizeIndex];
     try {
       const result = await api.generateCharacter(selected.id, {
@@ -296,6 +305,7 @@ export default function Characters() {
         cfg: 6.5,
         seed,
         reference_asset_id: referenceAssetId || undefined,
+        use_reference: Boolean(referenceAssetId),
         reference_mode: referenceMode,
         denoise,
         control_strength: controlStrength,
@@ -304,9 +314,13 @@ export default function Characters() {
       setLastPrompt(result.prompt);
       if (result.fallback) {
         setNotice("Pose mode requested, but ControlNet is not installed. Falling back to image-to-image with the pose reference.");
+      } else if (result.mode === "ipadapter-identity") {
+        setNotice("Identity mode: IP-Adapter conditioned the image on the selected reference.");
       }
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -321,7 +335,9 @@ export default function Characters() {
         steps,
         cfg: 6.5,
         denoise,
-        reference_asset_id: referenceAssetId || selected.canonical_asset_id || undefined,
+        reference_asset_id:
+          referenceAssetId ||
+          (sheetKind === "turnaround" ? undefined : selected.canonical_asset_id || undefined),
         allow_unapproved_reference: false,
       });
       setSheetId(result.sheet_id);
@@ -353,6 +369,14 @@ export default function Characters() {
 
   const approveSelected = async () => {
     if (!selected) return;
+    if (!selected.canonical_asset_id) {
+      setError("Set a canonical reference before approving this character.");
+      return;
+    }
+    const warning = selected.canonical_stale
+      ? "\n\nThe canonical reference predates the current profile. Approving locks this stale design."
+      : "";
+    if (!window.confirm(`Approve “${selected.name}” and lock this design version?${warning}`)) return;
     setError("");
     try {
       await api.approveCharacter(selected.id);
@@ -380,6 +404,7 @@ export default function Characters() {
 
   const setCanonical = async () => {
     if (!selected || !canonicalPick) return;
+    if (!window.confirm("Use this image as the character's canonical identity reference?")) return;
     setError("");
     try {
       await api.setCharacterCanonical(selected.id, canonicalPick);
@@ -394,6 +419,7 @@ export default function Characters() {
 
   const clearCanonical = async () => {
     if (!selected) return;
+    if (!window.confirm(`Clear the canonical reference for “${selected.name}”?`)) return;
     setError("");
     try {
       await api.clearCharacterCanonical(selected.id);
@@ -451,6 +477,23 @@ export default function Characters() {
     (item) => (item.role === "reference" || item.role === "pose") && item.id !== selected?.canonical_asset_id
   );
 
+  const previewUrlFor = (assetId?: string | null) => {
+    if (!assetId) return null;
+    if (assetId === selected?.canonical_asset_id) return selected?.canonical_url || null;
+    const item = media.find((entry) => entry.id === assetId);
+    return item?.url || `/api/assets/${assetId}/file`;
+  };
+  const identityPreviewUrl = previewUrlFor(canonicalPick || selected?.canonical_asset_id);
+  const identityPreviewPending = Boolean(canonicalPick) && canonicalPick !== selected?.canonical_asset_id;
+  const referencePreviewUrl = previewUrlFor(referenceAssetId);
+  const referencePreviewLabel = referenceAssetId
+    ? referenceAssetId === selected?.canonical_asset_id
+      ? "Canonical identity"
+      : referenceMedia.find((item) => item.id === referenceAssetId)?.label ||
+        referenceMedia.find((item) => item.id === referenceAssetId)?.role ||
+        "Selected reference"
+    : "";
+
   if (!selectedId) {
     return (
       <>
@@ -467,7 +510,7 @@ export default function Characters() {
     <>
       <PageHeader
         title="Characters"
-        subtitle="Build a reusable identity from a description, then generate reference views, expressions and poses with DreamShaper 8."
+        subtitle="Build a reusable identity from a description, then generate reference views, expressions and poses with your installed ComfyUI models."
         actions={
           <button className="btn primary" onClick={() => setShowCreate((value) => !value)}>
             {showCreate ? "Close" : "New character"}
@@ -505,9 +548,11 @@ export default function Characters() {
             </div>
             <div className="field span-2">
               <label>Description</label>
-              <textarea
+              <AutoGrowTextarea
+                minRows={4}
+                maxHeight={320}
                 value={newProfile.description}
-                placeholder="A curious young fox who lives at the edge of the forest."
+                placeholder="A curious young fox who lives at the edge of the forest. Describe personality, role, silhouette, colour notes and props."
                 onChange={(event) => setNewProfile({ ...newProfile, description: event.target.value })}
               />
             </div>
@@ -573,8 +618,7 @@ export default function Characters() {
 
       {selected && (
         <>
-          <div className="split">
-            <section className="panel">
+          <section className="panel" style={{ marginBottom: 16 }}>
               <div className="detail-head">
                 <div>
                   <h2>{selected.name}</h2>
@@ -595,8 +639,11 @@ export default function Characters() {
                 </div>
                 <div className="field span-2">
                   <label>Description</label>
-                  <textarea
+                  <AutoGrowTextarea
+                    minRows={6}
+                    maxHeight={520}
                     value={profile.description}
+                    placeholder="Full character brief: personality, role in the story, silhouette, colour notes, props, do-not-change details."
                     onChange={(event) => setProfile({ ...profile, description: event.target.value })}
                   />
                 </div>
@@ -617,11 +664,11 @@ export default function Characters() {
               </div>
             </section>
 
-            <section className="panel">
+            <section className="panel" style={{ marginBottom: 16 }}>
               <div className="panel-head">
                 <div>
                   <h2>Generate</h2>
-                  <div className="panel-sub">DreamShaper 8 · one job at a time</div>
+                  <div className="panel-sub">Local ComfyUI model · one job at a time</div>
                 </div>
                 {activeJob && <StatusBadge status={activeJob.status} />}
               </div>
@@ -641,13 +688,14 @@ export default function Characters() {
 
               <div className="section-title">Identity lock</div>
               <div className="row" style={{ alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-                {selected.canonical_url ? (
-                  <img
-                    className="scene-location"
-                    src={selected.canonical_url}
-                    alt={`${selected.name} canonical identity`}
-                    style={{ width: 104, height: 104, objectFit: "cover" }}
-                  />
+                {identityPreviewUrl ? (
+                  <div className="thumb-frame" style={{ width: 104, height: 104 }}>
+                    <img
+                      src={identityPreviewUrl}
+                      alt={identityPreviewPending ? `${selected.name} selected reference preview` : `${selected.name} canonical identity`}
+                    />
+                    <span className="thumb-tag">{identityPreviewPending ? "preview" : "canonical"}</span>
+                  </div>
                 ) : (
                   <div className="media-empty" style={{ width: 104, height: 104, margin: 0, display: "grid", placeItems: "center" }}>
                     No canonical
@@ -663,18 +711,31 @@ export default function Characters() {
                     ))}
                   </select>
                   <div className="row">
-                    <button className="btn sm" onClick={setCanonical} disabled={!canonicalPick}>
+                    <button className="btn sm" onClick={setCanonical} disabled={!canonicalPick || characterApproved}>
                       Use as canonical
                     </button>
                     {selected.canonical_asset_id && (
-                      <button className="btn sm" onClick={clearCanonical}>
+                      <button className="btn sm" onClick={clearCanonical} disabled={characterApproved} title={characterApproved ? "Approval must be reset before changing the canonical reference" : undefined}>
                         Clear canonical
                       </button>
                     )}
-                    <button className="btn sm" onClick={approveSelected} disabled={characterApproved}>
+                    <button
+                      className="btn sm"
+                      onClick={approveSelected}
+                      disabled={characterApproved || !selected.canonical_asset_id}
+                      title={!selected.canonical_asset_id ? "Set a canonical reference first" : undefined}
+                    >
                       {characterApproved ? "Approved" : "Approve character"}
                     </button>
                   </div>
+                  {!selected.canonical_asset_id && (
+                    <Alert kind="warn">Set a canonical reference before approving this character.</Alert>
+                  )}
+                  {selected.canonical_stale && (
+                    <Alert kind="warn">
+                      The canonical reference predates the current profile. Generate or select a current reference before approving.
+                    </Alert>
+                  )}
                   <div className="tiny muted">
                     The canonical image becomes the default identity reference for consistency generation.
                   </div>
@@ -752,7 +813,7 @@ export default function Characters() {
                 </div>
               </details>
 
-              <div className="form-grid">
+              <div className="form-grid cols-3">
                 <div className="field">
                   <label>Type</label>
                   <select value={kind} onChange={(event) => chooseKind(event.target.value as Kind)}>
@@ -816,6 +877,18 @@ export default function Characters() {
                       </option>
                     ))}
                   </select>
+                  {referencePreviewUrl ? (
+                    <div className="row" style={{ gap: 10, marginTop: 8, alignItems: "center" }}>
+                      <div className="thumb-frame" style={{ width: 64, height: 64 }}>
+                        <img src={referencePreviewUrl} alt="Selected reference" />
+                      </div>
+                      <span className="tiny muted wrap">{referencePreviewLabel}</span>
+                    </div>
+                  ) : (
+                    <div className="tiny muted" style={{ marginTop: 8 }}>
+                      No reference — the prompt alone defines the character.
+                    </div>
+                  )}
                 </div>
                 <div className="field">
                   <label>Reference mode</label>
@@ -865,8 +938,8 @@ export default function Characters() {
 
               <div className="row between" style={{ marginTop: 12 }}>
                 <span className="tiny muted">{KIND_LABEL[kind]} · {label}</span>
-                <button className="btn primary" onClick={generate} disabled={isActive(activeJob)}>
-                  {isActive(activeJob) ? "Generating…" : "Generate image"}
+                <button className="btn primary" onClick={generate} disabled={generating || isActive(activeJob)}>
+                  {generating ? "Queuing…" : isActive(activeJob) ? "Generating…" : "Generate image"}
                 </button>
               </div>
 
@@ -939,7 +1012,6 @@ export default function Characters() {
                 </>
               )}
             </section>
-          </div>
 
           {groups.map((group) => (
             <section className="panel" key={group.key} style={{ marginBottom: 16 }}>
@@ -964,6 +1036,15 @@ export default function Characters() {
                         <span className="wrap">{item.label || item.role}</span>
                         <span>{item.filename.split(".").pop()}</span>
                       </div>
+                      {(item.id === selected.canonical_asset_id ||
+                        (selected.updated_at && item.created_at && item.created_at < selected.updated_at)) && (
+                        <div className="chip-row" style={{ padding: "0 10px 8px" }}>
+                          {item.id === selected.canonical_asset_id && <span className="chip exp">canonical</span>}
+                          {selected.updated_at && item.created_at && item.created_at < selected.updated_at && (
+                            <span className="chip">before profile edit</span>
+                          )}
+                        </div>
+                      )}
                       <div className="media-actions">
                         <button
                           className="btn sm"

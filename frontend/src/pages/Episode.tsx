@@ -15,6 +15,7 @@ import type {
   ShotPlan,
 } from "../types";
 import { Alert, EmptyState, PageHeader, ProgressBar, StatusBadge } from "../components/Ui";
+import { AutoGrowTextarea } from "../components/AutoGrowTextarea";
 
 const SIZE_PRESETS = [
   { label: "1280×720 · 720p", width: 1280, height: 720 },
@@ -68,6 +69,13 @@ export default function EpisodeEditor() {
   const [dirty, setDirty] = useState(false);
   const [shotPlan, setShotPlan] = useState<ShotPlan | null>(null);
   const [shotPlanBusy, setShotPlanBusy] = useState(false);
+  const [scriptState, setScriptState] = useState<{
+    has_script: boolean;
+    script_approved: boolean;
+    latest_revision_number: number;
+    current_sha256: string;
+    storyboard_stale: boolean;
+  } | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newEpisode, setNewEpisode] = useState({ name: "", description: "" });
@@ -141,6 +149,7 @@ export default function EpisodeEditor() {
       setTimeline(cloneTimeline(undefined));
       setDirty(false);
       setShotPlan(null);
+      setScriptState(null);
       return;
     }
     let alive = true;
@@ -160,6 +169,14 @@ export default function EpisodeEditor() {
       })
       .catch(() => {
         if (alive) setShotPlan(null);
+      });
+    api
+      .scriptState(selectedEpisodeId)
+      .then((state) => {
+        if (alive) setScriptState(state);
+      })
+      .catch(() => {
+        if (alive) setScriptState(null);
       });
     return () => {
       alive = false;
@@ -372,6 +389,19 @@ export default function EpisodeEditor() {
     }
   };
 
+  const approveScript = async () => {
+    if (!episode || !scriptState?.has_script) return;
+    if (!window.confirm("Approve the current script for production?")) return;
+    setError("");
+    try {
+      await api.approveScript(episode.id);
+      setScriptState(await api.scriptState(episode.id));
+      setNotice("Script approved.");
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    }
+  };
+
   const exportEpisode = async () => {
     if (!episode) return;
     setError("");
@@ -525,9 +555,11 @@ export default function EpisodeEditor() {
                 onChange={(event) => setNewEpisode({ ...newEpisode, name: event.target.value })}
               />
             </div>
-            <div className="field">
+            <div className="field span-2">
               <label>Description</label>
-              <input
+              <AutoGrowTextarea
+                minRows={3}
+                maxHeight={260}
                 value={newEpisode.description}
                 placeholder="Milo discovers a strange light in the forest."
                 onChange={(event) => setNewEpisode({ ...newEpisode, description: event.target.value })}
@@ -618,6 +650,37 @@ export default function EpisodeEditor() {
                   );
                 })
               )}
+            </div>
+
+            <div className="row between" style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+              <div className="row">
+                <span className="chip">
+                  Script:{" "}
+                  {scriptState
+                    ? scriptState.has_script
+                      ? scriptState.latest_revision_number > 0
+                        ? `rev ${scriptState.latest_revision_number} · ${scriptState.script_approved ? "approved" : "not approved"}`
+                        : "installed · no validated revision"
+                      : "not installed"
+                    : "loading…"}
+                </span>
+                {scriptState?.storyboard_stale && <span className="chip pose">storyboard stale</span>}
+                {scriptState?.has_script && (
+                  <span className="tiny muted mono">{scriptState.current_sha256.slice(0, 12)}</span>
+                )}
+              </div>
+              <button
+                className="btn sm"
+                onClick={approveScript}
+                disabled={!scriptState?.has_script || scriptState.script_approved || scriptState.latest_revision_number === 0}
+                title={
+                  scriptState?.latest_revision_number === 0
+                    ? "Install a validated script revision first"
+                    : undefined
+                }
+              >
+                {scriptState?.script_approved ? "Script approved" : "Approve script"}
+              </button>
             </div>
 
             <div className="row between" style={{ marginTop: 12 }}>

@@ -70,6 +70,8 @@ export interface Character {
   appearance: string;
   canonical_asset_id: string | null;
   canonical_url: string | null;
+  canonical_created_at?: string | null;
+  canonical_stale?: boolean;
   voice_engine: string;
   voice_name: string;
   voice_rate: number;
@@ -392,6 +394,19 @@ export interface ModelConfig {
   attention: string;
   batch_size: number;
   max_pixels: number;
+}
+
+export interface FastModeStatus {
+  enabled: boolean;
+  lora: string;
+  lora_installed: boolean;
+  strength: number;
+  steps: number;
+  cfg: number;
+  sampler: string;
+  scheduler: string;
+  installed_loras: Record<string, boolean>;
+  available_presets: number[];
 }
 
 export interface ModelCatalog {

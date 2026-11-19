@@ -28,6 +28,10 @@ const DEFAULT_PROMPT =
   "A cheerful cartoon fox in a red scarf standing in a sunny forest clearing, western 2D TV cartoon style, clean bold outlines, flat colors, expressive eyes, storybook lighting";
 
 const IMAGE_DEFAULTS = { width: 512, height: 512, steps: 20, cfg: 7, sampler: "euler", scheduler: "normal" };
+const SDXL_IMAGE_DEFAULTS = { width: 1024, height: 1024, steps: 28, cfg: 6, sampler: "dpmpp_2m", scheduler: "karras" };
+function imageDefaults(workflow?: WorkflowEntry) {
+  return workflow?.engine === "sdxl" ? SDXL_IMAGE_DEFAULTS : IMAGE_DEFAULTS;
+}
 const VIDEO_DEFAULTS = {
   width: 1280,
   height: 704,
@@ -52,6 +56,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(true);
   const [form, setForm] = useState<FormState>({
     projectId: "",
     workflowId: "",
@@ -86,6 +91,7 @@ export default function Dashboard() {
         setProjects(projectList);
         setWorkflows(workflowList);
         const preferred =
+          workflowList.find((item) => item.runnable && item.id === "sdxl_txt2img") ||
           workflowList.find((item) => item.runnable && item.id === "sd15_txt2img") ||
           workflowList.find((item) => item.runnable && item.kind === "image") ||
           workflowList.find((item) => item.runnable);
@@ -93,9 +99,11 @@ export default function Dashboard() {
           ...current,
           projectId: current.projectId || projectList[0]?.id || "",
           workflowId: current.workflowId || preferred?.id || "",
+          ...(current.workflowId ? {} : imageDefaults(preferred)),
         }));
       })
-      .catch((exc) => setError(exc instanceof Error ? exc.message : String(exc)));
+      .catch((exc) => setError(exc instanceof Error ? exc.message : String(exc)))
+      .finally(() => setSetupLoading(false));
   }, []);
 
   useEffect(() => {
@@ -115,7 +123,7 @@ export default function Dashboard() {
 
   const chooseWorkflow = (workflowId: string) => {
     const workflow = workflows.find((item) => item.id === workflowId);
-    const defaults = workflow?.kind === "video" ? VIDEO_DEFAULTS : IMAGE_DEFAULTS;
+    const defaults = workflow?.kind === "video" ? VIDEO_DEFAULTS : imageDefaults(workflow);
     setForm((current) => ({ ...current, workflowId, ...defaults }));
   };
 
@@ -188,12 +196,12 @@ export default function Dashboard() {
       {notice && <div style={{ marginBottom: 14 }}><Alert kind="ok">{notice}</Alert></div>}
 
       <div className="stat-grid">
-        <StatCard label="Projects" value={counts?.projects ?? "—"} />
-        <StatCard label="Characters" value={counts?.characters ?? 0} />
-        <StatCard label="Backgrounds" value={counts?.backgrounds ?? 0} />
-        <StatCard label="Scenes" value={counts?.scenes ?? 0} />
-        <StatCard label="Episodes" value={counts?.episodes ?? 0} />
-        <StatCard label="Outputs" value={counts?.assets ?? 0} />
+        <StatCard label="Active projects" value={data ? counts?.projects ?? 0 : "—"} />
+        <StatCard label="Characters" value={data ? counts?.characters ?? 0 : "—"} />
+        <StatCard label="Backgrounds" value={data ? counts?.backgrounds ?? 0 : "—"} />
+        <StatCard label="Scenes" value={data ? counts?.scenes ?? 0 : "—"} />
+        <StatCard label="Completed episodes" value={data ? counts?.episodes ?? 0 : "—"} />
+        <StatCard label="Outputs" value={data ? counts?.assets ?? 0 : "—"} />
       </div>
 
       <div className="grid two">
@@ -204,11 +212,13 @@ export default function Dashboard() {
               <div className="panel-sub">{comfy?.server_url || "http://127.0.0.1:8188"}</div>
             </div>
             <span className="conn-pill">
-              <span className={`dot ${comfy?.connected ? "ok" : "bad"}`} />
-              {comfy?.connected ? "Connected" : "Offline"}
+              <span className={`dot ${comfy ? (comfy.connected ? "ok" : "bad") : "warn"}`} />
+              {comfy ? (comfy.connected ? "Connected" : "Offline") : "Checking…"}
             </span>
           </div>
-          {comfy?.connected ? (
+          {!comfy ? (
+            <div className="empty">Checking ComfyUI…</div>
+          ) : comfy.connected ? (
             <div className="kv">
               <span className="k">Version</span>
               <span className="v">{comfy.version}</span>
@@ -284,10 +294,12 @@ export default function Dashboard() {
           <div className="panel-head">
             <div>
               <h2>Quick Generate</h2>
-              <div className="panel-sub">Stable Diffusion 1.5 keyframes or Wan 2.2 clips</div>
+              <div className="panel-sub">Local ComfyUI keyframes or Wan 2.2 clips</div>
             </div>
           </div>
-          {projects.length === 0 ? (
+          {setupLoading ? (
+            <div className="empty">Loading project and workflows…</div>
+          ) : projects.length === 0 ? (
             <EmptyState>
               You need a project before generating. <Link className="link" to="/projects">Create your first project</Link>.
             </EmptyState>

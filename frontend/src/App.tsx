@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { api } from "./api";
 import { Sidebar } from "./components/Sidebar";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Workflows from "./pages/Workflows";
@@ -40,7 +41,8 @@ export default function App() {
     <div className="app">
       <Sidebar connected={connected} />
       <main className="main">
-        <Routes>
+        <ErrorBoundary>
+          <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/characters" element={<Characters />} />
@@ -54,7 +56,8 @@ export default function App() {
           <Route path="/workflows" element={<Workflows />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </ErrorBoundary>
       </main>
     </div>
   );

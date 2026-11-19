@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useProject } from "../ProjectContext";
 import type { Project } from "../types";
 import { Alert, EmptyState, PageHeader } from "../components/Ui";
+import { AutoGrowTextarea } from "../components/AutoGrowTextarea";
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -116,12 +117,14 @@ export default function Projects() {
             <label>Name</label>
             <input value={name} onChange={(event) => setName(event.target.value)} placeholder="My cartoon episode" />
           </div>
-          <div className="field">
+          <div className="field span-2">
             <label>Description</label>
-            <input
+            <AutoGrowTextarea
+              minRows={3}
+              maxHeight={260}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Optional"
+              placeholder="Optional: logline, cast notes, visual direction."
             />
           </div>
         </div>

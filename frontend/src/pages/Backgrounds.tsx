@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useProject } from "../ProjectContext";
 import type { Background, Job, MediaItem } from "../types";
 import { Alert, EmptyState, PageHeader, ProgressBar, StatusBadge } from "../components/Ui";
+import { AutoGrowTextarea } from "../components/AutoGrowTextarea";
 
 const ASPECTS = [
   { ratio: "16:9", width: 1024, height: 576, label: "16:9 ? 1024?576 (SD 1.5)" },
@@ -313,7 +314,9 @@ export default function Backgrounds() {
             </div>
             <div className="field span-2">
               <label>Description</label>
-              <textarea
+              <AutoGrowTextarea
+                minRows={4}
+                maxHeight={320}
                 value={newProfile.description}
                 placeholder="A sunny forest clearing with tall pine trees, mossy rocks and wildflowers."
                 onChange={(event) => setNewProfile({ ...newProfile, description: event.target.value })}
@@ -407,8 +410,11 @@ export default function Backgrounds() {
                 </div>
                 <div className="field span-2">
                   <label>Description</label>
-                  <textarea
+                  <AutoGrowTextarea
+                    minRows={5}
+                    maxHeight={420}
                     value={profile.description}
+                    placeholder="Describe the location: time of day, weather, architecture, palette, props."
                     onChange={(event) => setProfile({ ...profile, description: event.target.value })}
                   />
                 </div>
@@ -420,7 +426,7 @@ export default function Backgrounds() {
               <div className="panel-head">
                 <div>
                   <h2>Generate</h2>
-                  <div className="panel-sub">DreamShaper 8 · no characters in the prompt</div>
+                  <div className="panel-sub">Local ComfyUI model · no characters in the prompt</div>
                 </div>
                 {activeJob && <StatusBadge status={activeJob.status} />}
               </div>
