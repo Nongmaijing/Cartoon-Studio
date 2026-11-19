@@ -31,7 +31,16 @@
     "seed": -1,
     "negative_prompt": "photo, photorealistic, 3d render, blurry, low quality, deformed, extra limbs, extra fingers, extra tails, duplicate body parts, floating limbs, malformed paws, bad anatomy, watermark, text, signature, artist signature, logo, initials, monogram, cropped, jpeg artifacts",
     "timeout_seconds": 1800,
-    "max_concurrent_jobs": 1
+    "max_concurrent_jobs": 1,
+    "fast_mode": {
+      "enabled": false,
+      "lora": "sdxl_lightning_8step_lora.safetensors",
+      "strength": 1.0,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler": "euler",
+      "scheduler": "sgm_uniform"
+    }
   },
   "models": {
     "default_architecture": "sdxl",
@@ -57,7 +66,9 @@
       "background": "sdxl_background",
       "scene": "sdxl_txt2img",
       "img2img": "sdxl_img2img",
-      "txt2img": "sdxl_txt2img"
+      "txt2img": "sdxl_txt2img",
+      "controlnet_pose_sdxl": "sdxl_controlnet_pose",
+      "controlnet_pose_sd15": "sd15_controlnet_pose"
     },
     "presets": {
       "sd15_character": {
@@ -91,7 +102,7 @@
         "width": 1024,
         "height": 1024,
         "steps": 28,
-        "cfg": 6.0,
+        "cfg": 6,
         "sampler": "dpmpp_2m",
         "scheduler": "karras",
         "batch_size": 1
@@ -100,7 +111,7 @@
         "width": 832,
         "height": 1216,
         "steps": 28,
-        "cfg": 6.0,
+        "cfg": 6,
         "sampler": "dpmpp_2m",
         "scheduler": "karras",
         "batch_size": 1
@@ -109,7 +120,7 @@
         "width": 1216,
         "height": 832,
         "steps": 28,
-        "cfg": 6.0,
+        "cfg": 6,
         "sampler": "dpmpp_2m",
         "scheduler": "karras",
         "batch_size": 1
@@ -118,7 +129,7 @@
         "width": 1216,
         "height": 832,
         "steps": 28,
-        "cfg": 6.0,
+        "cfg": 6,
         "sampler": "dpmpp_2m",
         "scheduler": "karras",
         "batch_size": 1

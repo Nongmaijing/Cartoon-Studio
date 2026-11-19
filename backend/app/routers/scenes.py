@@ -16,10 +16,17 @@ from ..schemas import (
     SceneMediaAttach,
     SceneUpdate,
 )
-from ..services.creative import NEGATIVE_DEFAULT, scene_prompt
-from ..services.conditioning import controlnet_model, resolve_image_mode
+from ..services.creative import scene_negative_prompt, scene_prompt
+from ..services.conditioning import (
+    controlnet_model,
+    controlnet_workflow_id,
+    ipadapter_workflow_id,
+    prefer_ipadapter,
+    resolve_image_mode,
+)
 from ..services.generation import submit_image, submit_video, upload_start_image
 from ..services.media import link_asset, list_media
+from ..services.model_config_service import configured_architecture
 from ..services.scenes import (
     decorate_scene,
     get_scene,
@@ -302,7 +309,10 @@ async def add_scene_cast(scene_id: str, payload: SceneCastAdd) -> dict[str, Any]
                VALUES (?, ?, ?, ?, ?)""",
             (uuid.uuid4().hex[:12], scene_id, payload.character_id, payload.role, now()),
         )
-    execute("UPDATE scenes SET updated_at = ? WHERE id = ?", (now(), scene_id))
+    execute(
+        "UPDATE scenes SET updated_at = ?, approval_status = CASE WHEN approval_status = 'approved' THEN 'draft' ELSE approval_status END, approved_at = CASE WHEN approval_status = 'approved' THEN NULL ELSE approved_at END WHERE id = ?",
+        (now(), scene_id),
+    )
     return _get(scene_id)
 
 
@@ -313,7 +323,10 @@ async def remove_scene_cast(scene_id: str, character_id: str) -> dict[str, Any]:
         "DELETE FROM scene_cast WHERE scene_id = ? AND character_id = ?",
         (scene_id, character_id),
     )
-    execute("UPDATE scenes SET updated_at = ? WHERE id = ?", (now(), scene_id))
+    execute(
+        "UPDATE scenes SET updated_at = ?, approval_status = CASE WHEN approval_status = 'approved' THEN 'draft' ELSE approval_status END, approved_at = CASE WHEN approval_status = 'approved' THEN NULL ELSE approved_at END WHERE id = ?",
+        (now(), scene_id),
+    )
     return _get(scene_id)
 
 
@@ -360,15 +373,31 @@ async def generate_scene(scene_id: str, payload: SceneGenerateRequest) -> dict[s
                 object_info = await client.object_info()
                 mode = resolve_image_mode(object_info, reference_mode, True)
                 if mode == "controlnet-pose":
-                    workflow_id = workflow_id or "sd15_controlnet_pose"
-                    control_net_name = controlnet_model(object_info)
+                    architecture = configured_architecture(config)
+                    chosen = controlnet_workflow_id(config, architecture)
+                    control_net_name = controlnet_model(object_info, architecture)
+                    if chosen and control_net_name:
+                        workflow_id = workflow_id or chosen
+                    else:
+                        mode = "image-to-image"
+                        control_net_name = None
+                elif mode == "ipadapter-identity" and prefer_ipadapter(workflow_id or settings.get("workflow_id")):
+                    identity_workflow = ipadapter_workflow_id(
+                        config, configured_architecture(config), variant="scene"
+                    )
+                    if identity_workflow:
+                        workflow_id = identity_workflow
+                    else:
+                        mode = "image-to-image"
+                elif mode == "ipadapter-identity":
+                    mode = "image-to-image"
                 input_image = await upload_start_image(
                     config, client, reference_asset_id, project_id
                 )
             job = await submit_image(
                 project_id=project_id,
                 prompt=prompt,
-                negative_prompt=payload.negative_prompt or NEGATIVE_DEFAULT,
+                negative_prompt=payload.negative_prompt or scene_negative_prompt(characters),
                 width=width,
                 height=height,
                 steps=payload.steps or settings.get("steps") or 24,
@@ -376,7 +405,9 @@ async def generate_scene(scene_id: str, payload: SceneGenerateRequest) -> dict[s
                 seed=payload.seed if payload.seed is not None else settings.get("seed", -1),
                 workflow_id=workflow_id,
                 input_image=input_image,
-                denoise=denoise if reference_asset_id else None,
+                denoise=(
+                    1.0 if mode == "ipadapter-identity" else denoise
+                ) if reference_asset_id else None,
                 control_strength=control_strength if mode == "controlnet-pose" else None,
                 control_net_name=control_net_name,
                 scene_id=scene_id,

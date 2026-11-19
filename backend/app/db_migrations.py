@@ -229,6 +229,31 @@ CREATE INDEX IF NOT EXISTS idx_jobs_resource ON jobs(resource_class, created_at)
         ],
         "sql": "",
     },
+    {
+        "version": 4,
+        "name": "script_revisions",
+        "columns": [],
+        "sql": """
+CREATE TABLE IF NOT EXISTS script_revisions (
+    id TEXT PRIMARY KEY,
+    episode_id TEXT NOT NULL,
+    revision_number INTEGER NOT NULL,
+    script_json TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    script_format TEXT NOT NULL DEFAULT 'story_scenes',
+    scene_count INTEGER NOT NULL DEFAULT 0,
+    dialogue_lines INTEGER NOT NULL DEFAULT 0,
+    base_revision_id TEXT,
+    actor TEXT NOT NULL DEFAULT 'user',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    UNIQUE(episode_id, revision_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_script_revisions_episode
+    ON script_revisions(episode_id, revision_number);
+""",
+    },
 ]
 
 

@@ -31,7 +31,11 @@ MAX_TTL_MINUTES = 480
 
 
 def normalize_ttl_minutes(value: Any) -> int:
-    """0 (or a negative value) means no automatic expiry."""
+    """Return a bounded TTL; infinite tunnels are not allowed.
+
+    Zero, negative and invalid values fall back to the default so a tunnel can
+    never be started without an automatic expiry.
+    """
     if value is None:
         return DEFAULT_TTL_MINUTES
     try:
@@ -39,7 +43,7 @@ def normalize_ttl_minutes(value: Any) -> int:
     except (TypeError, ValueError):
         return DEFAULT_TTL_MINUTES
     if minutes <= 0:
-        return 0
+        return DEFAULT_TTL_MINUTES
     return max(MIN_TTL_MINUTES, min(MAX_TTL_MINUTES, minutes))
 
 _state: dict[str, Any] = {
@@ -577,6 +581,15 @@ async def _status_unlocked() -> dict[str, Any]:
     except (httpx.HTTPError, ValueError):
         pass
     active = bool(_state.get("active"))
+    if active and not _state.get("expires_at"):
+        # Legacy tunnels created before TTL support are adopted with a bounded
+        # expiry so no public no-auth tunnel can run forever.
+        ttl = normalize_ttl_minutes(_state.get("ttl_minutes"))
+        _state["ttl_minutes"] = ttl
+        _state["expires_at"] = time.time() + ttl * 60
+        _state["message"] = "Legacy tunnel adopted with a bounded expiry."
+        _schedule_expiry(ttl * 60)
+        _persist()
     remaining = None
     if active and _state.get("expires_at"):
         remaining = max(0, int(float(_state["expires_at"]) - time.time()))

@@ -20,7 +20,7 @@ from ..schemas import (
     MediaAttach,
     VoiceAssignment,
 )
-from ..services import character_sheet_service, consistency_service
+from ..services import character_sheet_service, character_service, consistency_service
 from ..services.conditioning import controlnet_model, resolve_image_mode
 from ..services.creative import NEGATIVE_DEFAULT, character_prompt
 from ..services.generation import submit_image, upload_start_image
@@ -46,6 +46,16 @@ def _decorate(row: dict[str, Any]) -> dict[str, Any]:
     row["cover_url"] = f"/api/assets/{cover}/file" if cover else None
     canonical = row.get("canonical_asset_id")
     row["canonical_url"] = f"/api/assets/{canonical}/file" if canonical else None
+    row["canonical_created_at"] = None
+    row["canonical_stale"] = False
+    if canonical:
+        asset = query_one("SELECT created_at FROM assets WHERE id = ?", (canonical,))
+        if asset:
+            row["canonical_created_at"] = asset.get("created_at")
+            row["canonical_stale"] = bool(
+                asset.get("created_at") and row.get("updated_at")
+                and asset["created_at"] < row["updated_at"]
+            )
     try:
         row["memory"] = json.loads(row.get("memory_json") or "{}")
     except json.JSONDecodeError:
@@ -230,29 +240,22 @@ async def update_character_model(character_id: str, payload: CharacterModelSetti
 
 @router.post("/{character_id}/canonical")
 async def set_canonical_asset(character_id: str, payload: CanonicalAsset) -> dict[str, Any]:
-    character = _get(character_id)
-    asset = query_one("SELECT id, project_id, kind FROM assets WHERE id = ?", (payload.asset_id,))
-    if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found.")
-    if asset["project_id"] and character["project_id"] and asset["project_id"] != character["project_id"]:
-        raise HTTPException(status_code=400, detail="Asset belongs to a different project.")
-    if asset["kind"] != "image":
-        raise HTTPException(status_code=400, detail="The canonical asset must be an image.")
-    execute(
-        "UPDATE characters SET canonical_asset_id = ?, updated_at = ? WHERE id = ?",
-        (payload.asset_id, now(), character_id),
-    )
-    return _get(character_id)
+    from ..services.errors import ServiceError
+
+    try:
+        return character_service.set_canonical(character_id, payload.asset_id, actor="user")
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.delete("/{character_id}/canonical")
 async def clear_canonical_asset(character_id: str) -> dict[str, Any]:
-    _get(character_id)
-    execute(
-        "UPDATE characters SET canonical_asset_id = NULL, updated_at = ? WHERE id = ?",
-        (now(), character_id),
-    )
-    return _get(character_id)
+    from ..services.errors import ServiceError
+
+    try:
+        return character_service.clear_canonical(character_id, actor="user")
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.post("/{character_id}/generate", status_code=202)
@@ -273,6 +276,7 @@ async def generate_character_media(character_id: str, payload: CharacterGenerate
             prompt=payload.prompt,
             negative_prompt=payload.negative_prompt,
             reference_asset_id=payload.reference_asset_id,
+            use_reference=payload.use_reference,
             reference_mode=payload.reference_mode,
             denoise=payload.denoise,
             control_strength=payload.control_strength,

@@ -132,6 +132,38 @@ RECOMMENDATIONS: list[dict[str, Any]] = [
         "reference_conditioning": "Use with img2img; LoRA stacking is supported by the workflow injector.",
         "status": "not_installed",
     },
+    {
+        "name": "SDXL Lightning 8-step (LoRA)",
+        "filename_hints": ["lightning"],
+        "category": "loras",
+        "source": "https://huggingface.co/ByteDance/SDXL-Lightning",
+        "architecture": "SDXL LoRA",
+        "intended_use": "Distilled sampler that renders SDXL in 8 steps at CFG 1. Fast-mode toggle uses it for every SDXL image job.",
+        "license": "CreativeML Open RAIL++-M",
+        "license_notes": "Commercial use permitted under the Open RAIL++ use restrictions; keep the model card with the build.",
+        "download_size": "~375 MB",
+        "vram": "Adds a few hundred MB; reduces sampling time roughly 3-4x",
+        "compatibility": "Requires the core ComfyUI LoraLoader node; no custom nodes",
+        "cartoon_suitability": "High for flat 2D art at 1024x576; use 8 steps, CFG 1, euler, sgm_uniform.",
+        "reference_conditioning": "Stacks with IP-Adapter and ControlNet; identity conditioning is unaffected.",
+        "status": "not_installed",
+    },
+    {
+        "name": "SDXL Lightning 4-step (LoRA)",
+        "filename_hints": ["lightning_4", "lightning 4"],
+        "category": "loras",
+        "source": "https://huggingface.co/ByteDance/SDXL-Lightning",
+        "architecture": "SDXL LoRA",
+        "intended_use": "Faster Lightning variant: 4 steps at CFG 1. Use when draft speed matters more than fine detail.",
+        "license": "CreativeML Open RAIL++-M",
+        "license_notes": "Commercial use permitted under the Open RAIL++ use restrictions.",
+        "download_size": "~375 MB",
+        "vram": "Adds a few hundred MB; fastest SDXL option",
+        "compatibility": "Requires the core ComfyUI LoraLoader node; no custom nodes",
+        "cartoon_suitability": "Good for drafts and test renders; 8-step is safer for final frames.",
+        "reference_conditioning": "Stacks with IP-Adapter and ControlNet.",
+        "status": "not_installed",
+    },
 ]
 
 
@@ -351,6 +383,70 @@ def save_model_config(payload: dict[str, Any]) -> dict[str, Any]:
     return saved.get("models") or get_model_config()
 
 
+FAST_MODE_PRESETS: dict[int, dict[str, Any]] = {
+    8: {"lora": "sdxl_lightning_8step_lora.safetensors", "steps": 8},
+    4: {"lora": "sdxl_lightning_4step_lora.safetensors", "steps": 4},
+}
+
+
+def _lora_installed(config: dict[str, Any], filename: str) -> bool:
+    if not filename:
+        return False
+    return any((path / "loras" / filename).exists() for path in _model_dirs(config))
+
+
+def fast_mode_status(config: dict[str, Any] | None = None) -> dict[str, Any]:
+    config = config or load_config()
+    fast = dict((config.get("generation") or {}).get("fast_mode") or {})
+    lora = str(fast.get("lora") or "")
+    return {
+        "enabled": bool(fast.get("enabled")),
+        "lora": lora,
+        "lora_installed": _lora_installed(config, lora),
+        "strength": float(fast.get("strength") or 1.0),
+        "steps": int(fast.get("steps") or 8),
+        "cfg": float(fast.get("cfg") or 1.0),
+        "sampler": str(fast.get("sampler") or "euler"),
+        "scheduler": str(fast.get("scheduler") or "sgm_uniform"),
+        "installed_loras": {
+            str(steps): _lora_installed(config, preset["lora"])
+            for steps, preset in FAST_MODE_PRESETS.items()
+        },
+        "available_presets": sorted(FAST_MODE_PRESETS),
+    }
+
+
+def save_fast_mode(payload: dict[str, Any]) -> dict[str, Any]:
+    """Enable/disable the SDXL Lightning shortcut and pick 4 or 8 steps."""
+    config = load_config()
+    current = dict((config.get("generation") or {}).get("fast_mode") or {})
+    enabled = bool(payload.get("enabled", current.get("enabled")))
+    steps = int(payload.get("steps") or current.get("steps") or 8)
+    preset = FAST_MODE_PRESETS.get(steps)
+    if preset is None:
+        raise ValueError("Fast mode supports 4 or 8 steps.")
+    if enabled and not _lora_installed(config, preset["lora"]):
+        raise ValueError(
+            f"{preset['lora']} is not installed. Download it from Model Studio before enabling fast mode."
+        )
+    updated = {
+        **current,
+        "enabled": enabled,
+        "lora": preset["lora"],
+        "steps": steps,
+        "strength": float(payload.get("strength") or current.get("strength") or 1.0),
+        "cfg": 1.0,
+        "sampler": "euler",
+        "scheduler": "sgm_uniform",
+    }
+    updated.pop("lora_installed", None)
+    updated.pop("installed_loras", None)
+    updated.pop("available_presets", None)
+    config.setdefault("generation", {})["fast_mode"] = updated
+    save_config(config)
+    return fast_mode_status(load_config())
+
+
 def configured_checkpoint(config: dict[str, Any], engine: str) -> str:
     models = config.get("models") or {}
     return str((models.get("checkpoints") or {}).get(engine) or "")
@@ -414,6 +510,18 @@ def _workflow_for(
         if _workflow_matches(config, candidate, architecture):
             return candidate
     return ""
+
+
+def configured_architecture(config: dict[str, Any]) -> str:
+    """The architecture ``resolve_image_model`` will pick when none is requested."""
+    models = _deep_merge(default_config()["models"], config.get("models") or {})
+    requested = str(models.get("default_architecture") or "sdxl").lower()
+    if requested not in ("sdxl", "sd15"):
+        requested = "sdxl"
+    checkpoints = models.get("checkpoints") or {}
+    if checkpoints.get(requested):
+        return requested
+    return "sd15" if requested == "sdxl" else "sdxl"
 
 
 def resolve_image_model(

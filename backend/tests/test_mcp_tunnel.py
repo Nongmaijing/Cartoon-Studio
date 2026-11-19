@@ -18,8 +18,8 @@ def test_parse_tunnel_url_returns_none_for_unrelated_text():
 
 def test_normalize_ttl_minutes():
     assert mcp_tunnel_service.normalize_ttl_minutes(None) == 30
-    assert mcp_tunnel_service.normalize_ttl_minutes(0) == 0
-    assert mcp_tunnel_service.normalize_ttl_minutes(-5) == 0
+    assert mcp_tunnel_service.normalize_ttl_minutes(0) == 30
+    assert mcp_tunnel_service.normalize_ttl_minutes(-5) == 30
     assert mcp_tunnel_service.normalize_ttl_minutes(1) == 5
     assert mcp_tunnel_service.normalize_ttl_minutes(60) == 60
     assert mcp_tunnel_service.normalize_ttl_minutes(9999) == 480

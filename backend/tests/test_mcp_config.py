@@ -37,7 +37,7 @@ def test_profiles_separate_studio_and_opencode_tools(monkeypatch):
     studio = _tool_names(create_mcp_server("studio"))
     opencode = _tool_names(create_mcp_server("opencode"))
     combined = _tool_names(create_mcp_server("all"))
-    assert len(studio) == 56
+    assert len(studio) == 58
     assert opencode == {
         "opencode_ask",
         "opencode_task",

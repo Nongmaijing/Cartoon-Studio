@@ -6,6 +6,7 @@ from typing import Any
 
 from ..db import execute, now, query, query_one
 from .audit_service import log
+from .canonical_service import validate_canonical_asset
 from .errors import NotFoundError
 
 
@@ -64,6 +65,7 @@ def approve_character(character_id: str, actor: str = "user") -> dict[str, Any]:
     character = query_one("SELECT * FROM characters WHERE id = ?", (character_id,))
     if not character:
         raise NotFoundError("Character not found.")
+    validate_canonical_asset(character, character.get("canonical_asset_id"))
     execute(
         "UPDATE characters SET approval_status = 'approved', approved_at = ?, updated_at = ? WHERE id = ?",
         (now(), now(), character_id),

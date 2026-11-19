@@ -302,6 +302,12 @@ def build_registry() -> ToolRegistry:
     async def get_character_references(args: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
         return character_service.get_references(args["character_id"])
 
+    async def set_canonical_asset(args: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
+        return {"character": character_service.set_canonical(args["character_id"], args["asset_id"], actor=ctx.actor)}
+
+    async def clear_canonical_asset(args: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
+        return {"character": character_service.clear_canonical(args["character_id"], actor=ctx.actor)}
+
     async def approve_character(args: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
         return character_service.approve_character(args["character_id"], actor=ctx.actor)
 
@@ -311,7 +317,9 @@ def build_registry() -> ToolRegistry:
     registry.register(Tool("get_character_details", "Get a character and memory.", _obj({"character_id": CHARACTER_ID}, ["character_id"]), get_character_details))
     registry.register(Tool("generate_character_sheet", "Generate a character reference/expression/pose image. Requires confirm=true.", _obj({"character_id": CHARACTER_ID, "kind": {"enum": ["reference", "expression", "pose"]}, "label": {"type": "string"}, "width": {"type": "integer"}, "height": {"type": "integer"}, "steps": {"type": "integer"}, "cfg": {"type": "number"}, "seed": {"type": "integer"}, "prompt": {"type": "string"}, "negative_prompt": {"type": "string"}, "reference_asset_id": {"type": "string"}, "reference_mode": {"enum": ["identity", "pose"]}, "denoise": {"type": "number"}, "control_strength": {"type": "number"}, "confirm": CONFIRM}, ["character_id"]), generate_character_sheet, scope="production", confirmation_required=True, timeout_seconds=600))
     registry.register(Tool("get_character_references", "Get canonical, reference, expression and pose assets.", _obj({"character_id": CHARACTER_ID}, ["character_id"]), get_character_references))
-    registry.register(Tool("approve_character", "Approve a character and snapshot its version.", _obj({"character_id": CHARACTER_ID}, ["character_id"]), approve_character, scope="write"))
+    registry.register(Tool("set_canonical_asset", "Set a character's canonical reference image. The asset must be a reference or pose image linked to this character.", _obj({"character_id": CHARACTER_ID, "asset_id": {"type": "string"}}, ["character_id", "asset_id"]), set_canonical_asset, scope="write"))
+    registry.register(Tool("clear_canonical_asset", "Clear a character's canonical reference. Blocked while the character is approved.", _obj({"character_id": CHARACTER_ID}, ["character_id"]), clear_canonical_asset, scope="write"))
+    registry.register(Tool("approve_character", "Approve a character and snapshot its version. Requires a valid canonical reference and confirm=true.", _obj({"character_id": CHARACTER_ID, "confirm": CONFIRM}, ["character_id"]), approve_character, scope="write", confirmation_required=True))
 
     async def generate_story(args: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
         return await script_service.generate_story(_project(args, ctx), args["premise"], args.get("episode_id") or ctx.episode_id, actor=ctx.actor)
@@ -334,7 +342,7 @@ def build_registry() -> ToolRegistry:
     registry.register(Tool("generate_story", "Generate a children's story with OpenAI and store it in the episode.", _obj({"project_id": PROJECT_ID, "premise": {"type": "string"}, "episode_id": EPISODE_ID}, ["project_id", "premise"]), generate_story, scope="write", timeout_seconds=300))
     registry.register(Tool("generate_script", "Generate a production script from the episode story.", _obj({"episode_id": EPISODE_ID, "instructions": {"type": "string"}}, ["episode_id"]), generate_script, scope="write", timeout_seconds=300))
     registry.register(Tool("revise_script", "Revise the episode script with instructions.", _obj({"episode_id": EPISODE_ID, "instructions": {"type": "string"}}, ["episode_id", "instructions"]), revise_script, scope="write", timeout_seconds=300))
-    registry.register(Tool("approve_script", "Approve the episode script.", _obj({"episode_id": EPISODE_ID}, ["episode_id"]), approve_script, scope="write"))
+    registry.register(Tool("approve_script", "Approve the episode script. Requires confirm=true.", _obj({"episode_id": EPISODE_ID, "confirm": CONFIRM}, ["episode_id"]), approve_script, scope="write", confirmation_required=True))
     registry.register(Tool("create_storyboard", "Create scenes and dialogue from the approved script.", _obj({"episode_id": EPISODE_ID}, ["episode_id"]), create_storyboard, scope="write", timeout_seconds=300))
     registry.register(Tool("get_storyboard", "Get the episode storyboard and scenes.", _obj({"episode_id": EPISODE_ID}, ["episode_id"]), get_storyboard))
 
@@ -367,7 +375,7 @@ def build_registry() -> ToolRegistry:
     registry.register(Tool("update_scene", "Update scene text, camera, duration, cast or settings.", _obj({"scene_id": SCENE_ID, "name": {"type": "string"}, "description": {"type": "string"}, "dialogue": {"type": "string"}, "action": {"type": "string"}, "camera": {"type": "string"}, "duration": {"type": "number"}, "background_id": {"type": "string"}, "character_ids": {"type": "array", "items": {"type": "string"}}, "settings": {"type": "object"}}, ["scene_id"]), update_scene, scope="write"))
     registry.register(Tool("generate_scene_image", "Generate a scene keyframe. Requires confirm=true.", _obj({"scene_id": SCENE_ID, "prompt": {"type": "string"}, "negative_prompt": {"type": "string"}, "width": {"type": "integer"}, "height": {"type": "integer"}, "steps": {"type": "integer"}, "cfg": {"type": "number"}, "seed": {"type": "integer"}, "workflow_id": {"type": "string"}, "reference_asset_id": {"type": "string"}, "reference_mode": {"enum": ["identity", "pose"]}, "denoise": {"type": "number"}, "control_strength": {"type": "number"}, "confirm": CONFIRM}, ["scene_id"]), generate_scene_image, scope="production", confirmation_required=True, timeout_seconds=600))
     registry.register(Tool("regenerate_scene", "Regenerate a scene keyframe. Requires confirm=true.", _obj({"scene_id": SCENE_ID, "prompt": {"type": "string"}, "negative_prompt": {"type": "string"}, "width": {"type": "integer"}, "height": {"type": "integer"}, "steps": {"type": "integer"}, "cfg": {"type": "number"}, "seed": {"type": "integer"}, "workflow_id": {"type": "string"}, "reference_asset_id": {"type": "string"}, "reference_mode": {"enum": ["identity", "pose"]}, "denoise": {"type": "number"}, "control_strength": {"type": "number"}, "confirm": CONFIRM}, ["scene_id"]), regenerate_scene, scope="production", confirmation_required=True, timeout_seconds=600))
-    registry.register(Tool("approve_scene", "Approve a scene.", _obj({"scene_id": SCENE_ID, "notes": {"type": "string"}}, ["scene_id"]), approve_scene, scope="write"))
+    registry.register(Tool("approve_scene", "Approve a scene. Requires confirm=true.", _obj({"scene_id": SCENE_ID, "notes": {"type": "string"}, "confirm": CONFIRM}, ["scene_id"]), approve_scene, scope="write", confirmation_required=True))
     registry.register(Tool("reject_scene", "Reject a scene and record notes.", _obj({"scene_id": SCENE_ID, "notes": {"type": "string"}}, ["scene_id"]), reject_scene, scope="write"))
 
     async def animate_scene(args: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:

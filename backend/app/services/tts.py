@@ -65,15 +65,38 @@ EMOTIONS: dict[str, dict[str, int]] = {
 }
 
 KOKORO_VOICES = [
+    # US English — female
     {"id": "af_heart", "name": "Heart · warm female", "locale": "en-US", "gender": "Female", "age": "Adult"},
     {"id": "af_bella", "name": "Bella · bright female", "locale": "en-US", "gender": "Female", "age": "Adult"},
     {"id": "af_nicole", "name": "Nicole · soft female", "locale": "en-US", "gender": "Female", "age": "Adult"},
+    {"id": "af_alloy", "name": "Alloy · neutral female", "locale": "en-US", "gender": "Female", "age": "Adult"},
+    {"id": "af_aoede", "name": "Aoede · expressive female", "locale": "en-US", "gender": "Female", "age": "Adult"},
+    {"id": "af_jessica", "name": "Jessica · clear female", "locale": "en-US", "gender": "Female", "age": "Adult"},
+    {"id": "af_kore", "name": "Kore · bright female", "locale": "en-US", "gender": "Female", "age": "Young"},
+    {"id": "af_nova", "name": "Nova · youthful female", "locale": "en-US", "gender": "Female", "age": "Young"},
+    {"id": "af_river", "name": "River · soft female", "locale": "en-US", "gender": "Female", "age": "Young"},
+    {"id": "af_sarah", "name": "Sarah · narration female", "locale": "en-US", "gender": "Female", "age": "Adult"},
+    {"id": "af_sky", "name": "Sky · youthful female", "locale": "en-US", "gender": "Female", "age": "Young"},
+    # US English — male
     {"id": "am_michael", "name": "Michael · friendly male", "locale": "en-US", "gender": "Male", "age": "Adult"},
     {"id": "am_fenrir", "name": "Fenrir · warm male", "locale": "en-US", "gender": "Male", "age": "Adult"},
+    {"id": "am_adam", "name": "Adam · deep male", "locale": "en-US", "gender": "Male", "age": "Adult"},
+    {"id": "am_echo", "name": "Echo · neutral male", "locale": "en-US", "gender": "Male", "age": "Adult"},
+    {"id": "am_eric", "name": "Eric · friendly male", "locale": "en-US", "gender": "Male", "age": "Adult"},
+    {"id": "am_liam", "name": "Liam · young male", "locale": "en-US", "gender": "Male", "age": "Young"},
+    {"id": "am_onyx", "name": "Onyx · deep male", "locale": "en-US", "gender": "Male", "age": "Adult"},
+    {"id": "am_puck", "name": "Puck · playful male", "locale": "en-US", "gender": "Male", "age": "Young"},
+    {"id": "am_santa", "name": "Santa · older male", "locale": "en-US", "gender": "Male", "age": "Senior"},
+    # British English — female
     {"id": "bf_emma", "name": "Emma · British female", "locale": "en-GB", "gender": "Female", "age": "Adult"},
     {"id": "bf_isabella", "name": "Isabella · British female", "locale": "en-GB", "gender": "Female", "age": "Adult"},
+    {"id": "bf_alice", "name": "Alice · British female", "locale": "en-GB", "gender": "Female", "age": "Adult"},
+    {"id": "bf_lily", "name": "Lily · youthful British female", "locale": "en-GB", "gender": "Female", "age": "Young"},
+    # British English — male
     {"id": "bm_george", "name": "George · British male", "locale": "en-GB", "gender": "Male", "age": "Adult"},
     {"id": "bm_fable", "name": "Fable · British male", "locale": "en-GB", "gender": "Male", "age": "Adult"},
+    {"id": "bm_daniel", "name": "Daniel · British male", "locale": "en-GB", "gender": "Male", "age": "Adult"},
+    {"id": "bm_lewis", "name": "Lewis · British male", "locale": "en-GB", "gender": "Male", "age": "Adult"},
 ]
 
 
@@ -92,6 +115,62 @@ _kokoro_load_lock = asyncio.Lock()
 
 def _clamp(value: int, low: int, high: int) -> int:
     return max(low, min(high, int(value)))
+
+
+def _semitones(pitch: int) -> float:
+    """Map the UI pitch percentage to semitones (100% == one octave)."""
+    return _clamp(pitch, -100, 100) * 0.12
+
+
+async def _shift_pitch(path: Path, semitones: float, timeout: float) -> None:
+    """Shift pitch without changing duration.
+
+    Neural engines such as Kokoro and Piper have fixed adult voices. Resampling
+    the output up a few semitones raises both pitch and formants, which is what
+    makes a young/adult voice read as a child.
+    """
+    if abs(semitones) < 0.15:
+        return
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        logger.warning("ffmpeg is not on PATH; pitch adjustment skipped")
+        return
+    try:
+        with wave.open(str(path), "rb") as handle:
+            sample_rate = handle.getframerate()
+            channels = handle.getnchannels()
+    except (OSError, wave.Error) as exc:
+        logger.warning("Could not read %s for pitch shift: %s", path, exc)
+        return
+    ratio = 2 ** (semitones / 12.0)
+    shifted = path.with_name(f"{path.stem}_pitch{path.suffix}")
+    filters = (
+        f"asetrate={sample_rate * ratio:.3f},aresample={sample_rate},"
+        f"atempo={1.0 / ratio:.6f}"
+    )
+    code, _, stderr = await _run(
+        [
+            ffmpeg,
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            str(path),
+            "-filter:a",
+            filters,
+            "-ac",
+            str(channels),
+            "-c:a",
+            "pcm_s16le",
+            str(shifted),
+        ],
+        timeout=timeout,
+    )
+    if code != 0 or not shifted.exists():
+        logger.warning("Pitch shift failed: %s", _decode(stderr)[:200])
+        shifted.unlink(missing_ok=True)
+        return
+    shifted.replace(path)
 
 
 def _powershell() -> str | None:
@@ -479,6 +558,8 @@ async def _piper_synth(
     )
     if code != 0:
         raise TTSError(f"Piper failed: {_decode(stderr)[:400] or 'unknown error'}")
+    if pitch:
+        await _shift_pitch(out_path, _semitones(pitch), timeout)
 
 
 async def _coqui_synth(
@@ -579,6 +660,8 @@ async def _kokoro_synth(
         handle.setsampwidth(2)
         handle.setframerate(sample_rate)
         handle.writeframes(pcm.tobytes())
+    if pitch:
+        await _shift_pitch(out_path, _semitones(pitch), timeout)
 
 
 async def synthesize(

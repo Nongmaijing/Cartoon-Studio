@@ -41,6 +41,15 @@ def default_config() -> dict[str, Any]:
             "negative_prompt": "photo, photorealistic, 3d render, blurry, low quality, deformed, extra limbs, extra fingers, extra tails, duplicate body parts, floating limbs, malformed paws, bad anatomy, watermark, text, signature, artist signature, logo, initials, monogram, cropped, jpeg artifacts",
             "timeout_seconds": 1800,
             "max_concurrent_jobs": 1,
+            "fast_mode": {
+                "enabled": False,
+                "lora": "sdxl_lightning_8step_lora.safetensors",
+                "strength": 1.0,
+                "steps": 8,
+                "cfg": 1.0,
+                "sampler": "euler",
+                "scheduler": "sgm_uniform",
+            },
         },
         "models": {
             "default_architecture": "sdxl",
@@ -60,6 +69,8 @@ def default_config() -> dict[str, Any]:
                 "scene": "sdxl_txt2img",
                 "img2img": "sdxl_img2img",
                 "txt2img": "sdxl_txt2img",
+                "controlnet_pose_sdxl": "sdxl_controlnet_pose",
+                "controlnet_pose_sd15": "sd15_controlnet_pose",
             },
             "presets": {
                 "sd15_character": {

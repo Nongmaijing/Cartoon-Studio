@@ -66,9 +66,20 @@ def _items_for(kind: str) -> list[tuple[str, str]]:
     raise ServiceError(f"Unknown character sheet kind '{kind}'.")
 
 
-def _extra_prompt(kind: str) -> str:
+def _extra_prompt(kind: str, label: str | None = None) -> str:
     if kind == "turnaround":
-        return "do not redesign, restyle or recolor the character; keep the saved design unchanged"
+        base = "do not redesign, restyle or recolor the character; keep the saved design unchanged"
+        view = " ".join(str(label or "").lower().replace("_", " ").replace("-", " ").split())
+        if view.endswith(" view"):
+            view = view[:-5].strip()
+        if view in {"back", "rear"}:
+            return (
+                f"{base}, uninterrupted fabric across the back, clean smooth back silhouette, "
+                "back of the top and overalls fully visible"
+            )
+        if view in {"side", "profile", "side profile"}:
+            return f"{base}, clean torso silhouette, uninterrupted side profile of the outfit"
+        return base
     if kind == "expressions":
         return (
             "same character, identical clothing and colors, head and shoulders portrait, "
@@ -78,6 +89,20 @@ def _extra_prompt(kind: str) -> str:
         "same character, identical clothing and colors, full body, one pose only, "
         "plain neutral background, clear silhouette, no multiple views"
     )
+
+
+def _turnaround_view_denoise(label: str, base: float) -> float | None:
+    """Use view-specific reference strength; the back view is text-to-image."""
+    base = max(0.0, min(1.0, float(base)))
+    if label == "back":
+        return None
+    if label == "front":
+        return base
+    if label == "three_quarter":
+        return max(base, 0.55)
+    if label == "side":
+        return max(base, 0.65)
+    return base
 
 
 async def generate_sheet(
@@ -154,11 +179,21 @@ async def generate_sheet(
     )
     jobs: list[dict[str, Any]] = []
     for label, prompt_label in _items_for(kind):
-        composed = character_prompt(character, "reference" if kind == "turnaround" else kind, prompt_label, _extra_prompt(kind))
+        view_input_image = input_image
+        view_denoise = denoise if reference else None
+        if kind == "turnaround" and reference:
+            view_denoise = _turnaround_view_denoise(label, denoise)
+            if view_denoise is None:
+                view_input_image = None
+        composed = character_prompt(character, "reference" if kind == "turnaround" else kind, prompt_label, _extra_prompt(kind, label))
         job = await submit_image(
             project_id=project_id,
             prompt=composed,
-            negative_prompt=character_negative_prompt("reference", label) if kind == "turnaround" else None,
+            negative_prompt=(
+                character_negative_prompt("reference", label, character.get("clothing"))
+                if kind == "turnaround"
+                else None
+            ),
             attach={
                 "owner_type": "character",
                 "owner_id": character_id,
@@ -170,8 +205,8 @@ async def generate_sheet(
             cfg=cfg,
             width=width,
             height=height,
-            input_image=input_image,
-            denoise=denoise if reference else None,
+            input_image=view_input_image,
+            denoise=view_denoise,
             architecture=architecture,
             purpose="character" if kind == "turnaround" else ("expression" if kind == "expressions" else "pose"),
             preset=preset,

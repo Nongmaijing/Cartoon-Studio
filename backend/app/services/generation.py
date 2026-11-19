@@ -36,6 +36,37 @@ def _runnable(entry: dict[str, Any] | None, kind: str) -> dict[str, Any]:
     return entry
 
 
+def apply_fast_mode(
+    params: dict[str, Any],
+    model: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply the SDXL Lightning sampling shortcut to an image job.
+
+    Fast mode is deliberately conservative: it only touches SDXL images, it never
+    overrides a LoRA the caller already chose (for example a character LoRA), and
+    it sets the sampler values Lightning was distilled for.
+    """
+    fast = (config.get("generation") or {}).get("fast_mode") or {}
+    if not fast.get("enabled"):
+        return params
+    if str(model.get("architecture") or "") != "sdxl":
+        return params
+    if params.get("lora_name"):
+        return params
+    lora = str(fast.get("lora") or "").strip()
+    if not lora:
+        return params
+    params["lora_name"] = lora
+    params["lora_strength"] = float(fast.get("strength") or 1.0)
+    params["steps"] = int(fast.get("steps") or 8)
+    params["cfg"] = float(fast.get("cfg") or 1.0)
+    params["sampler"] = str(fast.get("sampler") or "euler")
+    params["scheduler"] = str(fast.get("scheduler") or "sgm_uniform")
+    params["fast_mode"] = True
+    return params
+
+
 def image_workflow(
     config: dict[str, Any],
     workflow_id: str | None = None,
@@ -194,6 +225,7 @@ async def submit_image(
     params.setdefault("batch_size", 1)
     if extra_params:
         params.update(extra_params)
+    apply_fast_mode(params, model, config)
     if priority:
         params["priority"] = priority
     validate_dimensions(model, int(params["width"]), int(params["height"]))

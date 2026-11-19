@@ -11,8 +11,14 @@ from ..providers.registry import registry
 from .approval_service import approve_scene as approve_scene_record
 from .approval_service import reject_scene as reject_scene_record
 from .audit_service import log
-from .conditioning import controlnet_model, resolve_image_mode
-from .creative import NEGATIVE_DEFAULT, VIDEO_NEGATIVE, scene_prompt
+from .conditioning import (
+    controlnet_model,
+    controlnet_workflow_id,
+    ipadapter_workflow_id,
+    prefer_ipadapter,
+    resolve_image_mode,
+)
+from .creative import VIDEO_NEGATIVE, scene_negative_prompt, scene_prompt
 from .errors import NotFoundError, ServiceError
 from .generation import upload_start_image
 from .media import list_media
@@ -139,6 +145,13 @@ def update_scene(scene_id: str, updates: dict[str, Any], actor: str = "user") ->
         params.append(json.dumps(settings))
     if "character_ids" in fields:
         _replace_cast(scene_id, list(updates.get("character_ids") or []), project_id)
+    content_changed = bool(
+        fields & {"name", "description", "dialogue", "action", "camera", "duration",
+                  "background_id", "character_ids", "settings"}
+    )
+    if content_changed and scene.get("approval_status") == "approved":
+        # Approval describes a specific shot; content edits invalidate it.
+        sql_parts.extend(["approval_status = 'draft'", "approved_at = NULL"])
     if sql_parts:
         sql_parts.append("updated_at = ?")
         params.extend([now(), scene_id])
@@ -207,19 +220,33 @@ async def generate_scene_image(
     if reference_asset_id:
         object_info = await client.object_info()
         mode = resolve_image_mode(object_info, reference_mode, True)
+        requested_workflow = workflow_id or settings.get("workflow_id")
         if mode == "controlnet-pose":
-            if model["architecture"] == "sd15":
-                workflow_id = workflow_id or "sd15_controlnet_pose"
-                control_net_name = controlnet_model(object_info)
+            workflow_id = controlnet_workflow_id(config, model["architecture"])
+            control_net_name = controlnet_model(object_info, model["architecture"])
+            if not workflow_id or not control_net_name:
+                mode = "image-to-image"
+                workflow_id = None
+                control_net_name = None
+        elif mode == "ipadapter-identity" and prefer_ipadapter(requested_workflow):
+            identity_workflow = ipadapter_workflow_id(
+                config, model["architecture"], variant="scene"
+            )
+            if identity_workflow:
+                workflow_id = identity_workflow
             else:
                 mode = "image-to-image"
-                control_net_name = None
+        elif mode == "ipadapter-identity":
+            # A deliberate graph was chosen (for example ControlNet): keep it.
+            mode = "image-to-image"
+            if requested_workflow and "controlnet" in requested_workflow:
+                control_net_name = controlnet_model(object_info, model["architecture"])
         input_image = await upload_start_image(config, client, reference_asset_id, project_id)
     provider = registry.get("image")
     result = await provider.generate_image(
         project_id=project_id,
         prompt=composed,
-        negative_prompt=negative_prompt or NEGATIVE_DEFAULT,
+        negative_prompt=negative_prompt or scene_negative_prompt(characters),
         width=target_w,
         height=target_h,
         steps=steps if steps is not None else settings.get("steps"),
@@ -228,7 +255,7 @@ async def generate_scene_image(
         workflow_id=workflow_id or settings.get("workflow_id"),
         scene_id=scene_id,
         input_image=input_image,
-        denoise=denoise if reference_asset_id else None,
+        denoise=(1.0 if mode == "ipadapter-identity" else denoise) if reference_asset_id else None,
         control_strength=control_strength if mode == "controlnet-pose" else None,
         control_net_name=control_net_name,
         purpose="scene",

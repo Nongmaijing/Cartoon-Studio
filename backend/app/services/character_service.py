@@ -11,7 +11,14 @@ from ..providers.registry import registry
 from .approval_service import approve_character as approve_character_record
 from .approval_service import snapshot_character
 from .audit_service import log
-from .conditioning import controlnet_model, controlnet_ready, resolve_image_mode
+from .canonical_service import validate_canonical_asset
+from .conditioning import (
+    controlnet_model,
+    controlnet_ready,
+    controlnet_workflow_id,
+    ipadapter_workflow_id,
+    resolve_image_mode,
+)
 from .creative import character_negative_prompt, character_prompt
 from .errors import NotFoundError, ServiceError
 from .generation import upload_start_image
@@ -42,6 +49,16 @@ def _decorate(row: dict[str, Any]) -> dict[str, Any]:
     row["cover_url"] = f"/api/assets/{cover}/file" if cover else None
     canonical = row.get("canonical_asset_id")
     row["canonical_url"] = f"/api/assets/{canonical}/file" if canonical else None
+    row["canonical_created_at"] = None
+    row["canonical_stale"] = False
+    if canonical:
+        asset = query_one("SELECT created_at FROM assets WHERE id = ?", (canonical,))
+        if asset:
+            row["canonical_created_at"] = asset.get("created_at")
+            row["canonical_stale"] = bool(
+                asset.get("created_at") and row.get("updated_at")
+                and asset["created_at"] < row["updated_at"]
+            )
     try:
         row["memory"] = json.loads(row.get("memory_json") or "{}")
     except json.JSONDecodeError:
@@ -115,11 +132,13 @@ def create_character(
 
 
 def update_character(character_id: str, updates: dict[str, Any], actor: str = "user") -> dict[str, Any]:
-    get_character(character_id)
-    allowed = set(CHARACTER_FIELDS) | {"canonical_asset_id", "memory_json", "approval_status"}
+    current = get_character(character_id)
+    allowed = set(CHARACTER_FIELDS) | {"memory_json"}
     fields = [field for field in updates if field in allowed]
     if not fields:
-        return get_character(character_id)
+        return current
+    identity_fields = {"name", "description", "style", "clothing", "appearance"}
+    identity_changed = bool(identity_fields & set(fields))
     sql_parts: list[str] = []
     params: list[Any] = []
     for field in fields:
@@ -128,6 +147,9 @@ def update_character(character_id: str, updates: dict[str, Any], actor: str = "u
             value = value.strip()
         sql_parts.append(f"{field} = ?")
         params.append(value)
+    if identity_changed and current.get("approval_status") == "approved":
+        # Approval describes a specific design. Editing identity fields invalidates it.
+        sql_parts.extend(["approval_status = 'draft'", "approved_at = NULL"])
     sql_parts.append("updated_at = ?")
     params.extend([now(), character_id])
     execute(f"UPDATE characters SET {', '.join(sql_parts)} WHERE id = ?", params)
@@ -156,13 +178,13 @@ def update_voice(character_id: str, *, engine: str, voice: str, rate: int = 0, p
 
 def set_canonical(character_id: str, asset_id: str, actor: str = "user") -> dict[str, Any]:
     character = get_character(character_id)
-    asset = query_one("SELECT id, project_id, kind FROM assets WHERE id = ?", (asset_id,))
-    if not asset:
-        raise NotFoundError("Asset not found.")
-    if asset.get("project_id") and character.get("project_id") and asset["project_id"] != character["project_id"]:
-        raise ServiceError("Asset belongs to a different project.")
-    if asset.get("kind") != "image":
-        raise ServiceError("The canonical asset must be an image.")
+    if character.get("approval_status") == "approved" and character.get("canonical_asset_id") != asset_id:
+        raise ServiceError(
+            "Cannot change the canonical reference while the character is approved.",
+            status_code=409,
+            code="canonical_locked",
+        )
+    validate_canonical_asset(character, asset_id)
     execute(
         "UPDATE characters SET canonical_asset_id = ?, updated_at = ? WHERE id = ?",
         (asset_id, now(), character_id),
@@ -173,7 +195,13 @@ def set_canonical(character_id: str, asset_id: str, actor: str = "user") -> dict
 
 
 def clear_canonical(character_id: str, actor: str = "user") -> dict[str, Any]:
-    get_character(character_id)
+    character = get_character(character_id)
+    if character.get("approval_status") == "approved":
+        raise ServiceError(
+            "Cannot clear the canonical reference while the character is approved.",
+            status_code=409,
+            code="canonical_locked",
+        )
     execute(
         "UPDATE characters SET canonical_asset_id = NULL, updated_at = ? WHERE id = ?",
         (now(), character_id),
@@ -230,6 +258,7 @@ async def generate_sheet(
     prompt: str | None = None,
     negative_prompt: str | None = None,
     reference_asset_id: str | None = None,
+    use_reference: bool = True,
     reference_mode: str = "identity",
     denoise: float = 0.5,
     control_strength: float = 0.8,
@@ -244,7 +273,9 @@ async def generate_sheet(
         config["comfyui"]["server_url"],
         timeout=float(config["comfyui"].get("request_timeout_seconds", 120)),
     )
-    reference_asset_id = reference_asset_id or character.get("canonical_asset_id")
+    reference_asset_id = (
+        reference_asset_id or character.get("canonical_asset_id")
+    ) if use_reference else None
     input_image = None
     workflow_id = None
     mode = "text-to-image"
@@ -266,12 +297,17 @@ async def generate_sheet(
         explicit=bool(overrides.get("architecture")),
     )
     if mode == "controlnet-pose":
-        if model["architecture"] == "sd15":
-            workflow_id = "sd15_controlnet_pose"
-            control_net_name = controlnet_model(object_info)
-        else:
+        workflow_id = controlnet_workflow_id(config, model["architecture"])
+        control_net_name = controlnet_model(object_info, model["architecture"])
+        if not workflow_id or not control_net_name:
             mode = "image-to-image"
+            workflow_id = None
             control_net_name = None
+    elif mode == "ipadapter-identity":
+        workflow_id = ipadapter_workflow_id(config, model["architecture"])
+        if not workflow_id:
+            mode = "image-to-image"
+            workflow_id = None
     if "preset" not in overrides:
         overrides["preset"] = (
             "sdxl_portrait"
@@ -281,11 +317,15 @@ async def generate_sheet(
     effective_denoise = float(
         overrides.pop("reference_strength", overrides.pop("denoise", denoise))
     )
+    if mode == "ipadapter-identity":
+        # IP-Adapter conditions an empty latent; a partial denoise would only add noise.
+        effective_denoise = 1.0
     provider = registry.get("image")
     result = await provider.generate_image(
         project_id=project_id,
         prompt=composed,
-        negative_prompt=negative_prompt or character_negative_prompt(kind, final_label),
+        negative_prompt=negative_prompt
+        or character_negative_prompt(kind, final_label, character.get("clothing")),
         width=width,
         height=height,
         steps=steps,

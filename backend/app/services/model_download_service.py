@@ -55,6 +55,26 @@ SOURCES: dict[str, dict[str, Any]] = {
         "license": "CreativeML Open RAIL++-M",
         "token_env": "CIVITAI_TOKEN",
     },
+    "SDXL Lightning 8-step (LoRA)": {
+        "provider": "huggingface",
+        "filename": "sdxl_lightning_8step_lora.safetensors",
+        "category": "loras",
+        "url": "https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_8step_lora.safetensors",
+        "size_bytes": 393854592,
+        "sha256": "5aa30d94cdf7950a8b53a693682650ee061eddb128c5435a8f88defea73b2ac6",
+        "license": "CreativeML Open RAIL++-M",
+        "token_env": "",
+    },
+    "SDXL Lightning 4-step (LoRA)": {
+        "provider": "huggingface",
+        "filename": "sdxl_lightning_4step_lora.safetensors",
+        "category": "loras",
+        "url": "https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_4step_lora.safetensors",
+        "size_bytes": 393854592,
+        "sha256": "bf56cf2657efb15e465d81402ed481d1e11c4677e4bcce1bc11fe71ad8506b79",
+        "license": "CreativeML Open RAIL++-M",
+        "token_env": "",
+    },
 }
 
 _DOWNLOADS: dict[str, dict[str, Any]] = {}

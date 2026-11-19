@@ -1,0 +1,433 @@
+{
+  "revision": "S01E01-v3-draft-20261111",
+  "source": "v2 naturalness/continuity revision; v1 and v2 preserved.",
+  "story": {
+    "title": "Pilot: The Little Seed",
+    "logline": "When Toby finds a tiny seed, his friends use their unique talents to help it grow, learning that patience and gentle care make magic happen.",
+    "moral": "Even the smallest seeds need time, care, and kindness to grow into something wonderful.",
+    "scenes": [
+      {
+        "title": "The Old Oak Gathering",
+        "summary": "The friends share snacks under the Old Oak. Toby spots a tiny seed near the garden, and everyone has an idea about what it might become.",
+        "action": "Wide shot of the six friends on the tree roots, sharing snacks. Toby crouches to inspect the seed. Close-up of the tiny seed in his palm.",
+        "camera": "Warm, sunny wide shot, then a gentle push-in to the seed.",
+        "background": "Old Oak Clearing v2",
+        "duration_seconds": 105,
+        "characters": [
+          "Toby",
+          "Leo",
+          "Mira",
+          "Pip",
+          "Bruno",
+          "Ollie"
+        ],
+        "dialogue": [
+          {
+            "speaker": "Narrator",
+            "text": "Under the Old Oak, the leaves made a soft, rustling sound.",
+            "emotion": "calm"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "Six friends gathered in the shade with snacks to share.",
+            "emotion": "warm"
+          },
+          {
+            "speaker": "Toby",
+            "text": "I brought apple slices. They're cut into little moons.",
+            "emotion": "quiet"
+          },
+          {
+            "speaker": "Pip",
+            "text": "I brought carrot sticks! Crunchy, crunchy carrot sticks!",
+            "emotion": "excited"
+          },
+          {
+            "speaker": "Bruno",
+            "text": "Thank you, Pip. Let's share them together.",
+            "emotion": "gentle"
+          },
+          {
+            "speaker": "Mira",
+            "text": "I brought my new drawing. It's a garden with a giant sunflower.",
+            "emotion": "proud"
+          },
+          {
+            "speaker": "Leo",
+            "text": "A giant sunflower? Imagine standing under it!",
+            "emotion": "imaginative"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "I'd need a giant hat!",
+            "emotion": "playful"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "Everyone laughed. Then Toby noticed something small by the path.",
+            "emotion": "curious"
+          },
+          {
+            "speaker": "Toby",
+            "text": "Look. There's a tiny seed.",
+            "emotion": "curious"
+          },
+          {
+            "speaker": "Leo",
+            "text": "A seed! It looks like a little brown pebble.",
+            "emotion": "amazed"
+          },
+          {
+            "speaker": "Mira",
+            "text": "Maybe it will grow into a flower.",
+            "emotion": "hopeful"
+          },
+          {
+            "speaker": "Pip",
+            "text": "Or a carrot! A giant, crunchy carrot!",
+            "emotion": "excited"
+          },
+          {
+            "speaker": "Bruno",
+            "text": "It might. Every seed is a little mystery.",
+            "emotion": "thoughtful"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "A mystery seed! We should sing to it.",
+            "emotion": "playful"
+          },
+          {
+            "speaker": "Toby",
+            "text": "Should we plant it?",
+            "emotion": "hopeful"
+          },
+          {
+            "speaker": "Mira",
+            "text": "Yes! Let's find a safe, sunny spot in the garden.",
+            "emotion": "decisive"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "The friends carried the seed to the garden, walking slowly and carefully.",
+            "emotion": "gentle"
+          }
+        ]
+      },
+      {
+        "title": "Watering Wishes",
+        "summary": "The friends plant the seed. Pip is a little too enthusiastic with the water, and Bruno teaches gentle care.",
+        "action": "Mira shows her handmade watering can. Pip pours a big splash and makes a puddle. Bruno checks the soil. Toby looks worried. Pip practices a tiny splash.",
+        "camera": "Playful medium shots with exaggerated water splashes, then a calm close-up of the soil.",
+        "background": "Garden Patch v2",
+        "duration_seconds": 100,
+        "characters": [
+          "Pip",
+          "Mira",
+          "Bruno",
+          "Toby",
+          "Ollie"
+        ],
+        "dialogue": [
+          {
+            "speaker": "Narrator",
+            "text": "In the garden, the friends made a little home for the seed.",
+            "emotion": "warm"
+          },
+          {
+            "speaker": "Mira",
+            "text": "I made this watering can from a bottle and a spout. It's perfect for tiny seeds.",
+            "emotion": "proud"
+          },
+          {
+            "speaker": "Pip",
+            "text": "Let me water it! Splash! Splash! Splash!",
+            "emotion": "excited"
+          },
+          {
+            "speaker": "Bruno",
+            "text": "Gently, Pip. A little water is enough.",
+            "emotion": "gentle"
+          },
+          {
+            "speaker": "Pip",
+            "text": "But seeds love water! Maybe it wants a big drink.",
+            "emotion": "enthusiastic"
+          },
+          {
+            "speaker": "Toby",
+            "text": "The soil is getting very wet.",
+            "emotion": "uncertain"
+          },
+          {
+            "speaker": "Mira",
+            "text": "Oops! There's a puddle.",
+            "emotion": "surprised"
+          },
+          {
+            "speaker": "Pip",
+            "text": "Oh! I didn't mean to make a puddle.",
+            "emotion": "sheepish"
+          },
+          {
+            "speaker": "Bruno",
+            "text": "That's all right. We can fix it. Let's wait for the water to soak in.",
+            "emotion": "calm"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "The seed is having a bath!",
+            "emotion": "playful"
+          },
+          {
+            "speaker": "Toby",
+            "text": "Will it be okay?",
+            "emotion": "worried"
+          },
+          {
+            "speaker": "Bruno",
+            "text": "Yes. We'll give it just a little water each day.",
+            "emotion": "reassuring"
+          },
+          {
+            "speaker": "Mira",
+            "text": "And sunshine. Plants need sunshine too.",
+            "emotion": "confident"
+          },
+          {
+            "speaker": "Pip",
+            "text": "I can be the water helper. Gentle splashes only.",
+            "emotion": "determined"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "Pip practiced a tiny splash. The friends laughed, and the seed sat quietly in the soft, damp soil.",
+            "emotion": "warm"
+          }
+        ]
+      },
+      {
+        "title": "The Waiting Game",
+        "summary": "The friends make a plan, a marker and a waiting song. Days pass, and Toby learns that some things grow slowly.",
+        "action": "The group arranges a marker beside the seed. Morning and evening care montage: watering, sunshine, rain, singing. Toby places a small pebble beside the marker.",
+        "camera": "Cosy close-ups of the marker and soil, then a gentle time-lapse of the garden.",
+        "background": "Garden Patch v2",
+        "duration_seconds": 105,
+        "characters": [
+          "Bruno",
+          "Mira",
+          "Toby",
+          "Ollie",
+          "Pip",
+          "Leo"
+        ],
+        "dialogue": [
+          {
+            "speaker": "Narrator",
+            "text": "The next morning, the friends came back to check on the seed.",
+            "emotion": "calm"
+          },
+          {
+            "speaker": "Toby",
+            "text": "It's still just soil.",
+            "emotion": "disappointed"
+          },
+          {
+            "speaker": "Mira",
+            "text": "Seeds are shy. They need time to wake up.",
+            "emotion": "hopeful"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "Maybe it's sleeping. Shhh!",
+            "emotion": "playful"
+          },
+          {
+            "speaker": "Bruno",
+            "text": "Let's make a plan. We can water gently, give it sunshine, and check every morning.",
+            "emotion": "calm"
+          },
+          {
+            "speaker": "Mira",
+            "text": "I'll make a marker so we remember where we planted it.",
+            "emotion": "creative"
+          },
+          {
+            "speaker": "Toby",
+            "text": "I'll bring my little watering cup.",
+            "emotion": "helpful"
+          },
+          {
+            "speaker": "Pip",
+            "text": "I'll bring the gentle splashes!",
+            "emotion": "cheerful"
+          },
+          {
+            "speaker": "Leo",
+            "text": "I'll draw a picture of what it might become.",
+            "emotion": "imaginative"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "And I'll sing the waiting song!",
+            "emotion": "excited"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "So the friends took turns. Morning after morning, they watered, watched, and sang.",
+            "emotion": "warm"
+          },
+          {
+            "speaker": "Toby",
+            "text": "Grow, little seed, grow. We're waiting for you.",
+            "emotion": "gentle"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "Waiting, waiting, patiently... that's the waiting song!",
+            "emotion": "playful"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "Some days the sun was warm. Some days the rain patted the garden.",
+            "emotion": "calm"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "And still, the friends waited.",
+            "emotion": "gentle"
+          },
+          {
+            "speaker": "Toby",
+            "text": "Is it ever going to wake up?",
+            "emotion": "worried"
+          },
+          {
+            "speaker": "Bruno",
+            "text": "Not forever. Some things grow slowly. We can be patient together.",
+            "emotion": "reassuring"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "Toby nodded and placed a tiny pebble beside the marker.",
+            "emotion": "hopeful"
+          }
+        ]
+      },
+      {
+        "title": "A Tiny Miracle",
+        "summary": "A tiny green sprout appears. The friends celebrate quietly and promise to keep caring for it.",
+        "action": "Macro shot of the sprout pushing through the soil. The friends gather around, delighted. Closing wide shot under the Old Oak at golden hour.",
+        "camera": "Soft macro shot, then a warm group shot and a gentle pull-back to the garden.",
+        "background": "Garden Patch v2",
+        "duration_seconds": 100,
+        "characters": [
+          "Toby",
+          "Leo",
+          "Mira",
+          "Pip",
+          "Bruno",
+          "Ollie"
+        ],
+        "dialogue": [
+          {
+            "speaker": "Narrator",
+            "text": "Then, one morning, Toby saw something new.",
+            "emotion": "curious"
+          },
+          {
+            "speaker": "Toby",
+            "text": "Look! The soil is moving!",
+            "emotion": "excited"
+          },
+          {
+            "speaker": "Leo",
+            "text": "A tiny green sprout!",
+            "emotion": "amazed"
+          },
+          {
+            "speaker": "Mira",
+            "text": "It's pushing up through the soil!",
+            "emotion": "delighted"
+          },
+          {
+            "speaker": "Pip",
+            "text": "It's so little! Hello, little sprout!",
+            "emotion": "affectionate"
+          },
+          {
+            "speaker": "Bruno",
+            "text": "It grew because we cared for it gently.",
+            "emotion": "proud"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "And because we sang to it!",
+            "emotion": "playful"
+          },
+          {
+            "speaker": "Toby",
+            "text": "It's beautiful.",
+            "emotion": "soft"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "The friends sat quietly and watched the little sprout in the sunshine.",
+            "emotion": "calm"
+          },
+          {
+            "speaker": "Mira",
+            "text": "We can keep caring for it. Every day.",
+            "emotion": "hopeful"
+          },
+          {
+            "speaker": "Leo",
+            "text": "Imagine how big it'll be one day. Maybe as tall as the Old Oak!",
+            "emotion": "imaginative"
+          },
+          {
+            "speaker": "Pip",
+            "text": "I'll give it gentle splashes.",
+            "emotion": "cheerful"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "And I'll sing the growing song!",
+            "emotion": "playful"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "So the friends learned that even the smallest seed needs time, care, and kindness to grow.",
+            "emotion": "warm"
+          },
+          {
+            "speaker": "Toby",
+            "text": "Grow, little seed, grow!",
+            "emotion": "joyful"
+          },
+          {
+            "speaker": "Pip",
+            "text": "Grow, grow, grow!",
+            "emotion": "cheerful"
+          },
+          {
+            "speaker": "Ollie",
+            "text": "Grow, little seed, grow!",
+            "emotion": "playful"
+          },
+          {
+            "speaker": "Narrator",
+            "text": "And under the Old Oak, the little garden was full of hope.",
+            "emotion": "warm"
+          }
+        ]
+      }
+    ]
+  },
+  "changelog": [
+    "Replaced formal phrasing with preschool-natural contractions.",
+    "Changed 'shivery sound' to 'rustling sound' for clarity and safety.",
+    "Replaced the unsupported 'All' speaker with Toby, Pip and Ollie lines.",
+    "Strengthened Leo's finale contribution with an imagination beat."
+  ]
+}

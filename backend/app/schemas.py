@@ -156,6 +156,7 @@ class CharacterGenerateRequest(BaseModel):
     seed: int | None = None
     workflow_id: str | None = None
     reference_asset_id: str | None = None
+    use_reference: bool = True
     reference_mode: Literal["identity", "pose"] = "identity"
     denoise: float = Field(default=0.55, ge=0.0, le=1.0)
     control_strength: float = Field(default=0.8, ge=0.0, le=2.0)
@@ -325,6 +326,13 @@ class EpisodeCreate(BaseModel):
 class EpisodeUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
+
+
+class ScriptRevisionCreate(BaseModel):
+    script: dict[str, Any]
+    base_revision_id: str | None = None
+    expected_current_sha256: str | None = None
+    notes: str = Field(default="", max_length=4000)
 
 
 class EpisodeSegment(BaseModel):

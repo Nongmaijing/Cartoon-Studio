@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from ..schemas import ModelDownloadRequest
-from ..schemas_ai import ModelConfigUpdate
+from ..schemas_ai import FastModeUpdate, ModelConfigUpdate
 from ..services import model_config_service, model_download_service
 from ..services.errors import ServiceError
 
@@ -38,6 +38,19 @@ async def update_config(payload: ModelConfigUpdate) -> dict[str, Any]:
 async def recommendations() -> dict[str, Any]:
     data = await model_config_service.catalog()
     return {"recommendations": data["recommendations"], "note": data["note"]}
+
+
+@router.get("/fast-mode")
+async def fast_mode() -> dict[str, Any]:
+    return model_config_service.fast_mode_status()
+
+
+@router.put("/fast-mode")
+async def update_fast_mode(payload: FastModeUpdate) -> dict[str, Any]:
+    try:
+        return model_config_service.save_fast_mode(payload.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/downloads")

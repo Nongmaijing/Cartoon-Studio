@@ -182,8 +182,8 @@ def recommendations() -> list[dict[str, Any]]:
             "download_size": "~64 MB",
             "vram": "2–4 GB",
             "commercial_use": "BSD-3-Clause code; verify weights",
-            "status": "not_installed",
-            "recommendation": "Useful alternative to 4x-UltraSharp; install the upscale model file manually.",
+            "status": "installed",
+            "recommendation": "Installed and verified. Select the 'upscale_4x_real_esrgan' workflow to compare against 4x-UltraSharp.",
         },
         {
             "department": "upscaling",
@@ -287,24 +287,24 @@ def recommendations() -> list[dict[str, Any]]:
         {
             "department": "character_consistency",
             "name": "IP-Adapter (SDXL)",
-            "source": "https://github.com/tencent-ailab/IP-Adapter",
-            "license": "Apache 2.0 code; verify weights",
-            "download_size": "Hundreds of MB",
+            "source": "https://github.com/cubiq/ComfyUI_IPAdapter_plus",
+            "license": "Apache 2.0 (h94/IP-Adapter weights)",
+            "download_size": "0.79 GB adapter + 3.44 GB ViT-H encoder",
             "vram": "Adds 1–2 GB",
-            "commercial_use": "Verify weights",
-            "status": "not_installed",
-            "recommendation": "Strong reference conditioning candidate; currently img2img is the available fallback.",
+            "commercial_use": "Apache 2.0; verify weights",
+            "status": "installed",
+            "recommendation": "Weights, ViT-H encoder and the ComfyUI_IPAdapter_plus node are installed. Select 'sdxl_ipadapter_identity' explicitly; it is not auto-selected.",
         },
         {
             "department": "character_consistency",
             "name": "ControlNet SDXL OpenPose",
-            "source": "https://huggingface.co/lllyasviel/ControlNet-v1-1 (verify SDXL variant)",
-            "license": "Varies by model card",
-            "download_size": "~1–2.5 GB",
+            "source": "https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0",
+            "license": "Apache 2.0",
+            "download_size": "2.33 GB",
             "vram": "Adds 1–2 GB",
-            "commercial_use": "Verify",
-            "status": "not_installed",
-            "recommendation": "Pose control candidate; current ControlNet node is present but no model weights.",
+            "commercial_use": "Apache 2.0",
+            "status": "installed",
+            "recommendation": "Installed and wired into the SDXL pose path via 'sdxl_controlnet_pose'.",
         },
         {
             "department": "lip_sync",
@@ -684,10 +684,10 @@ async def registry() -> dict[str, Any]:
             status="ready" if consistency_ready else "partial",
             summary=(
                 "Reference-locked SDXL img2img and an automated identity check are available. "
-                "IP-Adapter and SDXL ControlNet are optional upgrades, so pose/identity "
-                "conditioning currently uses img2img plus vision review."
+                "SDXL ControlNet OpenPose is wired into the pose path, and IP-Adapter Plus "
+                "identity conditioning is available as an explicit workflow."
                 if consistency_ready
-                else "Reference-locked img2img is available, but an automated identity check needs a local vision model. IP-Adapter/ControlNet weights are not installed."
+                else "Reference-locked img2img is available, but an automated identity check needs a local vision model. SDXL ControlNet and IP-Adapter weights are installed; pose conditioning is wired, IP-Adapter needs explicit workflow selection."
             ),
             installed=(
                 [
@@ -718,7 +718,11 @@ async def registry() -> dict[str, Any]:
             missing=(
                 []
                 if consistency_ready
-                else [item for item in recommendations() if item["department"] == "character_consistency"]
+                else [
+                    item
+                    for item in recommendations()
+                    if item["department"] == "character_consistency" and item["status"] != "installed"
+                ]
             ),
             recommendations=[item for item in recommendations() if item["department"] == "character_consistency"],
         ),

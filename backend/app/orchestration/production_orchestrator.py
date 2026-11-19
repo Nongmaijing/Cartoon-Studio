@@ -153,7 +153,14 @@ def start_production(
 ) -> dict[str, Any]:
     if not confirm:
         raise ConfirmationRequired("Starting production requires explicit confirmation (confirm=true).")
-    episode_service.get_episode(episode_id)
+    episode = episode_service.get_episode(episode_id)
+    production = episode.get("production") or {}
+    if not production.get("script_approved"):
+        raise ServiceError(
+            "The episode script must be approved before production can start.",
+            status_code=409,
+            code="script_not_approved",
+        )
     existing = query_one(
         "SELECT * FROM production_runs WHERE episode_id = ? AND status IN ('running','paused') ORDER BY created_at DESC LIMIT 1",
         (episode_id,),
@@ -162,9 +169,44 @@ def start_production(
         return get_status(existing["id"])
     if plan is None:
         rows = query("SELECT id FROM scenes WHERE project_id = ? ORDER BY created_at ASC", (project_id,))
+        storyboard_ids = [
+            str(item.get("scene_id")) for item in (episode.get("storyboard") or [])
+            if item.get("scene_id")
+        ]
+        if storyboard_ids:
+            allowed = set(storyboard_ids)
+            rows = [row for row in rows if row["id"] in allowed]
         plan = {"scenes": [{"scene_id": row["id"]} for row in rows], "assemble": True}
     if not plan.get("scenes"):
         raise ServiceError("No scenes are available for production.")
+
+    missing_scenes: list[str] = []
+    missing_cast: list[str] = []
+    for item in plan.get("scenes") or []:
+        scene_id = str(item.get("scene_id") or "")
+        if not scene_id:
+            continue
+        scene = scene_service.get_scene_details(scene_id)
+        if scene.get("approval_status") != "approved":
+            missing_scenes.append(scene.get("name") or scene_id)
+        for member in scene.get("cast") or []:
+            character_id = member.get("character_id")
+            if not character_id:
+                continue
+            row = query_one("SELECT name, approval_status FROM characters WHERE id = ?", (character_id,))
+            if row and row.get("approval_status") != "approved":
+                missing_cast.append(row.get("name") or character_id)
+    if missing_scenes or missing_cast:
+        parts = []
+        if missing_scenes:
+            parts.append("unapproved scenes: " + ", ".join(sorted(set(missing_scenes))))
+        if missing_cast:
+            parts.append("unapproved cast: " + ", ".join(sorted(set(missing_cast))))
+        raise ServiceError(
+            "Approve all scenes and cast before production. Missing " + "; ".join(parts) + ".",
+            status_code=409,
+            code="production_not_ready",
+        )
     run_id = uuid.uuid4().hex[:12]
     timestamp = now()
     execute(

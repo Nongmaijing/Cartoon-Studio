@@ -4,8 +4,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 
 from ..db import query_one
-from ..schemas import EpisodeCreate, EpisodeExportRequest, EpisodeTimeline, EpisodeUpdate
-from ..services import episode_export, episodes
+from ..schemas import EpisodeCreate, EpisodeExportRequest, EpisodeTimeline, EpisodeUpdate, ScriptRevisionCreate
+from ..services import episode_export, episodes, script_revision_service, script_service
+from ..services.errors import ServiceError
 
 router = APIRouter(prefix="/api/episodes", tags=["episodes"])
 
@@ -36,6 +37,56 @@ async def create_episode(payload: EpisodeCreate) -> dict:
 @router.get("/{episode_id}")
 async def get_episode(episode_id: str) -> dict:
     return _require_episode(episode_id)
+
+
+@router.post("/{episode_id}/approve-script")
+async def approve_episode_script(episode_id: str) -> dict:
+    try:
+        return script_service.approve_script(episode_id, actor="user")
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.get("/{episode_id}/script-revisions/state")
+async def get_script_revision_state(episode_id: str) -> dict:
+    try:
+        return script_revision_service.get_state(episode_id)
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.get("/{episode_id}/script-revisions")
+async def list_script_revisions(episode_id: str, limit: int = 50, include_script: bool = False) -> dict:
+    try:
+        revisions = script_revision_service.list_revisions(
+            episode_id, limit=limit, include_script=include_script
+        )
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return {"episode_id": episode_id, "revisions": revisions}
+
+
+@router.post("/{episode_id}/script-revisions", status_code=201)
+async def create_script_revision(episode_id: str, payload: ScriptRevisionCreate) -> dict:
+    try:
+        return script_revision_service.create_revision(
+            episode_id,
+            payload.script,
+            base_revision_id=payload.base_revision_id,
+            expected_current_sha256=payload.expected_current_sha256,
+            notes=payload.notes,
+            actor="user",
+        )
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.get("/{episode_id}/script-revisions/{revision_id}")
+async def get_script_revision(episode_id: str, revision_id: str) -> dict:
+    try:
+        return script_revision_service.get_revision(episode_id, revision_id)
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.patch("/{episode_id}")
