@@ -490,11 +490,15 @@ async def _export(episode_id: str) -> None:
                 chain += f"[a{index}]"
                 filters.append(chain)
             if len(audio_items) == 1:
-                filters.append("[a1]alimiter=limit=0.95[aout]")
+                filters.append(
+                    "[a1]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,"
+                    "alimiter=limit=0.95[aout]"
+                )
             else:
                 labels = "".join(f"[a{index}]" for index in range(1, len(audio_items) + 1))
                 filters.append(
                     f"{labels}amix=inputs={len(audio_items)}:duration=longest:normalize=0,"
+                    "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,"
                     "alimiter=limit=0.95[aout]"
                 )
             cmd = [
