@@ -129,7 +129,11 @@ watermark, signature. Add per-style terms from the preset.
 ## 6. Character consistency
 
 1. Approve one canonical front image per character.
-2. Use it as the reference for every keyframe (`reference_mode: identity`).
+2. Generate side, three-quarter and back views through the automatic ControlNet
+   skeleton path; see `CHARACTER_TURNAROUND.md`.
+3. Fill `appearance` and `clothing` before generating views. A one-line
+   description cannot hold an outfit together across angles.
+4. Use it as the reference for every keyframe (`reference_mode: identity`).
 3. Use ControlNet OpenPose when the pose matters; IP-Adapter Plus when the face
    and costume matter.
 4. Train a per-character SDXL LoRA when a character appears in more than ~10
