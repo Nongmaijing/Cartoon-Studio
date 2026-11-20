@@ -133,7 +133,9 @@ watermark, signature. Add per-style terms from the preset.
    skeleton path; see `CHARACTER_TURNAROUND.md`.
 3. Fill `appearance` and `clothing` before generating views. A one-line
    description cannot hold an outfit together across angles.
-4. Use it as the reference for every keyframe (`reference_mode: identity`).
+4. Train a per-character LoRA once the turnaround is approved; see
+   `CHARACTER_LORA.md`. This is the series-level identity lock.
+5. Use it as the reference for every keyframe (`reference_mode: identity`).
 3. Use ControlNet OpenPose when the pose matters; IP-Adapter Plus when the face
    and costume matter.
 4. Train a per-character SDXL LoRA when a character appears in more than ~10
@@ -147,7 +149,8 @@ watermark, signature. Add per-style terms from the preset.
 ## 7. Voice direction
 
 - **Cast from timbre, not gender.** Kokoro has 29 voices; choose by warmth,
-  age and energy, then adjust rate/pitch per character.
+  age and energy, then adjust rate/pitch per character. For a humanlike cloned
+  narrator, use Chatterbox; see `VOICE_CLONING.md`.
 - **Emotion is a small offset, not a transformation.** Typical ranges:
   - calm: rate −2, pitch −4
   - excited: rate +4, pitch +10

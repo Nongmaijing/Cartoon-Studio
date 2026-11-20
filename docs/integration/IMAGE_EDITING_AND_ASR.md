@@ -262,4 +262,4 @@ Added in `backend/tests/test_editing_and_speech.py`:
 - target-size scaling without upscaling
 - vision comparison input guard
 
-Full suite: **151 passed**.
+Full suite: **158 passed**.

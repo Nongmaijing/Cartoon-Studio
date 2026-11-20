@@ -80,6 +80,8 @@ time**. Voice is not a bottleneck.
 | Character cutout (rembg U²-Net) | **3.1 s** for 768×1152 |
 | Turnaround side view (ControlNet + IP-Adapter) | **40 s** at 768×1152, peak 5723 MB |
 | Turnaround back view (ControlNet + IP-Adapter) | **49 s** at 768×1152, peak 5990 MB |
+| Narration import + 6-plate episode | 129.5 s 720p export, 18 cues |
+| Character LoRA (20 images, 24 epochs) | ~2 hours on this GPU (existing recipe) |
 | 2.5D parallax render | **1.0 s** for 4 s at 1280×720 |
 | Masked SDXL inpainting | 30.7 s at 1024×1024 |
 | faster-whisper small transcription | 3.45 s for a 1.75 s line (CPU int8) |
@@ -93,7 +95,7 @@ time**. Voice is not a bottleneck.
   warm light; production-usable.
 - **Pilot:** *Bramble and the Last Lantern* — 6:01, 41 shots, SDXL + SDXL
   Lightning + `bramble_sdxl` LoRA, Kokoro, FFmpeg.
-- **Test suite:** 151 passed.
+- **Test suite:** 158 passed.
 
 ## Bottlenecks, in order of impact
 

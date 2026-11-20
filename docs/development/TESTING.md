@@ -7,7 +7,7 @@ cd D:\bro\CartoonStudio\backend
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Current result: **151 passed**.
+Current result: **158 passed**.
 
 ## Test files
 

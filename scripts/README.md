@@ -139,3 +139,42 @@ Desktop's generated path map does not list that non-core folder. See
 - Never delete or overwrite accepted assets.
 - Drafts remain drafts until reviewed.
 - Character approval and canonical promotion are separate, human-owned gates.
+
+## Narration proof episode
+
+```powershell
+# read-only plan: no files or records written
+backend\.venv\Scripts\python.exe scripts\build_narration_episode.py --dry-run
+
+# normalize + transcribe the narration, generate plates, build and export
+backend\.venv\Scripts\python.exe scripts\build_narration_episode.py
+```
+
+Reads `G:\old desktop\my stories\Project1\voices`, writes normalized 48 kHz WAVs
+and sentence cues as project audio, creates six scenes and a 720p episode with
+soft subtitles. The source MP3s are never modified.
+
+## Character LoRA training
+
+```powershell
+backend\.venv\Scripts\python.exe scripts\train_character_lora.py `
+  --project-id <id> --character <name-or-id> --dry-run
+
+backend\.venv\Scripts\python.exe scripts\train_character_lora.py `
+  --project-id <id> --character <name-or-id>
+```
+
+Reuses the kohya_ss stack at `D:\bro\train`, builds a dataset from the
+character's reference/pose media, trains an SDXL rank-16 LoRA, installs it into
+ComfyUI and assigns it to the character. See `docs/operations/CHARACTER_LORA.md`.
+
+## Chatterbox voice cloning
+
+```powershell
+.\scripts\install_chatterbox.ps1          # CUDA build, isolated tools venv
+.\scripts\install_chatterbox.ps1 -Cpu     # CPU build
+```
+
+Put 10–20 s reference clips in `tools\chatterbox\voices`, restart the backend,
+then select **Chatterbox (voice cloning)** in Voice & Dialogue. See
+`docs/operations/VOICE_CLONING.md`.
