@@ -83,6 +83,7 @@ time**. Voice is not a bottleneck.
 | Narration import + 6-plate episode | 129.5 s 720p export, 18 cues |
 | Character LoRA (20 images, 24 epochs) | ~2 hours on this GPU (existing recipe) |
 | Village-life episode (8 plates + score) | 64 s export, -15.7 LUFS |
+| Wan I2V at 832×480 (97 frames) | 355 s, peak 5408 MB, stable scene |
 | Episode final mix | loudnorm to -16 LUFS / -1.5 dBTP |
 | 2.5D parallax render | **1.0 s** for 4 s at 1280×720 |
 | Masked SDXL inpainting | 30.7 s at 1024×1024 |
@@ -97,7 +98,7 @@ time**. Voice is not a bottleneck.
   warm light; production-usable.
 - **Pilot:** *Bramble and the Last Lantern* — 6:01, 41 shots, SDXL + SDXL
   Lightning + `bramble_sdxl` LoRA, Kokoro, FFmpeg.
-- **Test suite:** 160 passed.
+- **Test suite:** 162 passed.
 
 ## Bottlenecks, in order of impact
 

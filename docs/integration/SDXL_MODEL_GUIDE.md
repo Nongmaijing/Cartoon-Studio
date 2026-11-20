@@ -235,7 +235,7 @@ Reference conditioning: img2img works with the core workflow. SDXL ControlNet/IP
 | Asset registration | Passed — 4 assets attached to Leo with role `reference` |
 | Leo approval state | Unchanged — `draft`, no canonical asset |
 | SD 1.5 regression | Passed — 512×512 job `49d325544c3f`, asset `d5c70209dd33` |
-| Automated tests | **160 passed** |
+| Automated tests | **162 passed** |
 
 ### Leo turnaround assets (live SDXL run)
 
