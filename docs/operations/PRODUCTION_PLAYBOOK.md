@@ -160,7 +160,8 @@ watermark, signature. Add per-style terms from the preset.
 - Generate each line separately, keep the winning take, and never let a
   regeneration overwrite an accepted file.
 - Resample every voice asset to 48 kHz and normalize before the mix.
-- Target **−16 LUFS integrated**, **−1 dBTP true peak** for web delivery.
+- The final episode export applies `loudnorm` to **−16 LUFS / −1.5 dBTP**;
+  imported sources still benefit from normalization before they are mixed.
 - Duck music 6–10 dB under dialogue; leave room tone so cuts do not feel dead.
 
 ## 8. Sound design
@@ -185,7 +186,19 @@ Per polished 7-minute episode: **3–5 hours of machine time** plus review.
 A weekly cadence is realistic on this machine; a daily cadence needs a second
 GPU or cloud bursts for finals.
 
-## 11. Upgrade path
+## 11. Ambient / village-life format
+
+A second format with no plot and no dialogue, for relaxing compilations:
+
+- 8–16 domestic vignettes, 6–8 s each, 16:9.
+- Close-ups of hands, food, pots, textiles, a cat, rain on a window.
+- Slow push/pull or pan; cuts inside, fades at the ends.
+- Original ambient score plus birds/wind/rain; no subtitles.
+- 60–180 s total, delivered at −16 LUFS.
+
+See `VILLAGE_LIFE.md` and `scripts/build_village_life_episode.py`.
+
+## 12. Upgrade path
 
 - **Now:** art presets, draft/final profiles, cutout pipeline, voice direction,
   CC0 sound library.

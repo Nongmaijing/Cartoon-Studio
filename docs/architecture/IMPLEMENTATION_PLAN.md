@@ -120,7 +120,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Model approval action; no auto-approval.
 - [x] SD 1.5 live regression passed; SDXL live generation verified with DreamShaper XL 1.0.
 - [x] `docs/integration/SDXL_MODEL_GUIDE.md`.
-- [x] **158 passed** automated tests.
+- [x] **160 passed** automated tests.
 - [x] SDXL live character/background generation and VRAM measurement: completed on the 6 GB RTX 4050 with low-VRAM, tiled VAE and a 1.25 MP budget.
 
 ## Production Studio extension
@@ -134,7 +134,7 @@ Status: `[x]` implemented, `[~]` implemented with an external dependency, `[ ]` 
 - [x] Lip-sync viseme cue layer and migration v3; independently editable per dialogue line.
 - [x] 1080p H.264/AAC/subtitle export verified.
 - [x] Live tests: Wan image-to-video, 4× upscale, Kokoro dialogue, local SFX/music, SD 1.5 image, LLM/VLM.
-- [x] **158 passed** automated tests.
+- [x] **160 passed** automated tests.
 - [x] SDXL generation: verified with DreamShaper XL 1.0.
 - [ ] Image editing with Qwen-Image-Edit/FLUX Kontext: blocked by missing local weights (SDXL img2img and masked inpainting are available).
 - [x] IP-Adapter/SDXL ControlNet pose control: installed and smoke-tested.

@@ -72,7 +72,7 @@ view. The side jobs came back front-facing. The saved prompts show why:
 |---|---|
 | Side view, combined graph | 40 s, 768×1152, peak 5723 MB |
 | Back view, combined graph | 49 s, 768×1152, peak 5990 MB |
-| Tests | 158 passed |
+| Tests | 160 passed |
 
 The back view is the tightest job. If another GPU application is running, free
 VRAM first (`POST /api/v1/resources/free`) or render at 704×1056.

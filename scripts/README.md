@@ -178,3 +178,13 @@ ComfyUI and assigns it to the character. See `docs/operations/CHARACTER_LORA.md`
 Put 10–20 s reference clips in `tools\chatterbox\voices`, restart the backend,
 then select **Chatterbox (voice cloning)** in Voice & Dialogue. See
 `docs/operations/VOICE_CLONING.md`.
+
+## Village-life ambient episode
+
+```powershell
+backend\.venv\Scripts\python.exe scripts\build_village_life_episode.py --dry-run
+backend\.venv\Scripts\python.exe scripts\build_village_life_episode.py
+```
+
+Eight painterly vignettes, an original ambient score, birds and wind, 64 s,
+1280×720, no dialogue or subtitles. See `docs/operations/VILLAGE_LIFE.md`.
