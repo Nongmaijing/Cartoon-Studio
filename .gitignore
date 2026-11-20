@@ -23,6 +23,7 @@ backups/
 logs/
 data/
 projects/
+training/
 
 # OS/editor
 .DS_Store
