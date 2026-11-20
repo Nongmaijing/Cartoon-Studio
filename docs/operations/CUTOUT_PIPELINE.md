@@ -21,8 +21,9 @@ cd D:\bro\CartoonStudio\backend
 ```
 
 The first call downloads the 176 MB `u2net.onnx` model to
-`C:\Users\<user>\.rembg\models\u2net`. After that, cutouts run locally in about
-**3 seconds** for a 768×1152 character.
+`D:\bro\CartoonStudio\models\rembg\models\u2net` (the backend sets
+`REMBG_HOME` to the project tree, so nothing is stored on C:). After that,
+cutouts run locally in about **3 seconds** for a 768×1152 character.
 
 Colour keying remains available as `engine: "chroma"` for a fast fallback, but
 `rembg` is the production path: it handles grey, green or painterly backdrops

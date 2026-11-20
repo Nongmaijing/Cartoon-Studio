@@ -361,6 +361,11 @@ _REMBG_LOCK = threading.Lock()
 def _rembg_session() -> Any:
     global _REMBG_SESSION
     if _REMBG_SESSION is None:
+        # Keep the 168 MB u2net weights in the project tree, not on C:.
+        os.environ.setdefault(
+            "REMBG_HOME",
+            str(Path(__file__).resolve().parents[3] / "models" / "rembg"),
+        )
         from rembg import new_session
 
         _REMBG_SESSION = new_session("u2net")
