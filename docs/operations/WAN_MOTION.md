@@ -34,6 +34,18 @@ All three are 832×480, 24 fps, 4.04 s, and visually coherent.
 A fourth test on a village kitchen plate (`75ea2807ea9b`) completed in
 **355 s**, peak **5408 MB**, with the shelves stable and the steam moving.
 
+## Motion proof
+
+Project `b1ff88aadcf3`, episode `be11757efce4`:
+
+| Shot | Asset | Time |
+|---|---|---|
+| Simmering pot | `75ea2807ea9b` | 355 s |
+| Laundry breeze | `8340b9de6d25` | 357 s |
+| Rain and tea | `7596f3ff14b0` | 357 s |
+
+Assembled at 1280×720 with the ambient score: **12.1 s, −16.1 LUFS**.
+
 ## Do not use low resolutions
 
 Tested and rejected:

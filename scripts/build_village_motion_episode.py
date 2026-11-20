@@ -90,6 +90,14 @@ def _find(items: list[dict], name: str) -> dict | None:
 def _latest_video(client: httpx.Client, scene_id: str) -> str | None:
     media = _api(client, "GET", f"/api/scenes/{scene_id}/media")
     videos = [item for item in media if str(item.get("mime") or "").startswith("video/")]
+    # Prefer the proven 832x480 class; never reuse the corrupted low-res tests.
+    good = [
+        item
+        for item in videos
+        if int((item.get("meta") or {}).get("width") or 0) >= 800
+        and int((item.get("meta") or {}).get("height") or 0) >= 450
+    ]
+    videos = good or videos
     return videos[-1]["id"] if videos else None
 
 
