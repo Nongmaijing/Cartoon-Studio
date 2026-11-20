@@ -12,6 +12,15 @@ from ..services.generation import submit_image, upload_start_image
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 
+INLINE_TEXT_TYPES = {"text/plain", "application/x-subrip"}
+
+
+def inline_media(mime: str, download: bool) -> bool:
+    """Media plays in the browser; everything else downloads."""
+    return not download and (
+        mime.startswith(("image/", "video/", "audio/")) or mime in INLINE_TEXT_TYPES
+    )
+
 
 @router.get("")
 async def assets(limit: int = 50, project_id: str | None = None, kind: str | None = None) -> list[dict]:
@@ -27,12 +36,23 @@ async def asset(asset_id: str) -> dict:
 
 
 @router.get("/{asset_id}/file")
-async def asset_content(asset_id: str) -> FileResponse:
+async def asset_content(asset_id: str, download: bool = False) -> FileResponse:
     resolved = asset_file(asset_id)
     if not resolved:
         raise HTTPException(status_code=404, detail="Asset file not found.")
     path, asset = resolved
-    return FileResponse(path, media_type=asset["mime"], filename=asset["filename"])
+    mime = str(asset.get("mime") or "application/octet-stream")
+    inline = inline_media(mime, download)
+    if inline:
+        # No filename argument: Starlette then omits the attachment header and
+        # the browser displays images/video/audio inline.
+        return FileResponse(path, media_type=mime, content_disposition_type="inline")
+    return FileResponse(
+        path,
+        media_type=mime,
+        filename=asset["filename"],
+        content_disposition_type="attachment",
+    )
 
 
 @router.post("/{asset_id}/upscale", status_code=202)

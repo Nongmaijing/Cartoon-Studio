@@ -81,9 +81,14 @@ export function JobTable({
                 <td>
                   <div className="row" style={{ gap: 6 }}>
                     {output?.url && (
-                      <a className="btn sm" href={output.url} target="_blank" rel="noreferrer">
-                        Open output
-                      </a>
+                      <>
+                        <a className="btn sm" href={output.url} target="_blank" rel="noreferrer">
+                          Open output
+                        </a>
+                        <a className="btn sm" href={`${output.url}?download=1`}>
+                          Download
+                        </a>
+                      </>
                     )}
                     {(job.status === "running" || job.status === "queued") && onCancel && (
                       <button className="btn sm danger" onClick={() => onCancel(job)}>

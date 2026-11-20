@@ -142,12 +142,16 @@ async def cancel_export(episode_id: str) -> dict:
 
 
 @router.get("/{episode_id}/file")
-async def episode_file(episode_id: str) -> FileResponse:
+async def episode_file(episode_id: str, download: bool = False) -> FileResponse:
     episode = _require_episode(episode_id)
     path = episodes.output_path(episode)
     if not path:
         raise HTTPException(status_code=404, detail="No exported file is available yet.")
-    return FileResponse(path, media_type="video/mp4", filename=path.name)
+    if download:
+        return FileResponse(
+            path, media_type="video/mp4", filename=path.name, content_disposition_type="attachment"
+        )
+    return FileResponse(path, media_type="video/mp4", content_disposition_type="inline")
 
 
 @router.get("/{episode_id}/subtitles")

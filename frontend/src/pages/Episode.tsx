@@ -740,7 +740,15 @@ export default function EpisodeEditor() {
                     {formatSeconds(episode.duration_ms)}
                   </span>
                   <div className="row">
-                    <a className="btn sm" href={episode.output_url} download>
+                    <a
+                      className="btn sm"
+                      href={episode.output_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open MP4
+                    </a>
+                    <a className="btn sm" href={`${episode.output_url}?download=1`}>
                       Download MP4
                     </a>
                     {episode.subtitle_url && (
