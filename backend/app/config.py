@@ -166,6 +166,16 @@ def default_config() -> dict[str, Any]:
             "piper_model_dir": "",
             "kokoro_model": str(BASE_DIR / "tools" / "kokoro" / "kokoro-v1.0.onnx"),
             "kokoro_voices": str(BASE_DIR / "tools" / "kokoro" / "voices-v1.0.bin"),
+            "chatterbox": {
+                "python": str(
+                    BASE_DIR / "tools" / "chatterbox" / ".venv" / "Scripts" / "python.exe"
+                ),
+                "worker": str(BASE_DIR / "scripts" / "chatterbox_worker.py"),
+                "voices_dir": str(BASE_DIR / "tools" / "chatterbox" / "voices"),
+                "model": "original",
+                "device": "auto",
+                "timeout_seconds": 600,
+            },
             "timeout_seconds": 120,
         },
         "server": {"host": "127.0.0.1", "port": 8010},

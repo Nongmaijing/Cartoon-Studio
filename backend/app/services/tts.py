@@ -13,6 +13,7 @@ from typing import Any
 
 from ..config import BASE_DIR, load_config
 from ..logging_setup import logger
+from . import chatterbox_tts
 
 SAPI_SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
@@ -340,6 +341,8 @@ async def detect_engines(config: dict[str, Any] | None = None, refresh: bool = F
             ),
         }
     )
+
+    engines.append(chatterbox_tts.info(config))
 
     sapi_voices = await _sapi_voices()
     ps = _powershell()
@@ -709,6 +712,15 @@ async def synthesize(
         elif engine_id == "kokoro":
             await _kokoro_synth(
                 config, text, voice_id, effective_rate, effective_pitch, effective_volume, out_path, timeout
+            )
+        elif engine_id == "chatterbox":
+            # Cloned identity is preserved; do not pitch-shift the reference voice.
+            await chatterbox_tts.synthesize(
+                text=text,
+                out_path=out_path,
+                voice=voice_id,
+                emotion=emotion,
+                config=config,
             )
         else:
             raise TTSError(f"Unsupported TTS engine '{engine_id}'.")

@@ -166,6 +166,14 @@
     "piper_model_dir": "",
     "kokoro_model": "D:\\bro\\CartoonStudio\\tools\\kokoro\\kokoro-v1.0.onnx",
     "kokoro_voices": "D:\\bro\\CartoonStudio\\tools\\kokoro\\voices-v1.0.bin",
+    "chatterbox": {
+      "python": "D:\\bro\\CartoonStudio\\tools\\chatterbox\\.venv\\Scripts\\python.exe",
+      "worker": "D:\\bro\\CartoonStudio\\scripts\\chatterbox_worker.py",
+      "voices_dir": "D:\\bro\\CartoonStudio\\tools\\chatterbox\\voices",
+      "model": "original",
+      "device": "auto",
+      "timeout_seconds": 600
+    },
     "timeout_seconds": 120
   },
   "server": {
