@@ -74,6 +74,17 @@ class CutoutRequest(BaseModel):
     padding: int = Field(default=8, ge=0, le=200)
 
 
+class CameraClipRequest(BaseModel):
+    project_id: str
+    asset_id: str
+    duration: float = Field(default=8.0, ge=1, le=60)
+    fps: int = Field(default=24, ge=12, le=30)
+    width: int = Field(default=1280, ge=64, le=2048)
+    height: int = Field(default=720, ge=64, le=2048)
+    camera: str = Field(default="push_in", max_length=32)
+    motion_strength: float = Field(default=1.0, ge=0, le=3)
+
+
 class ParallaxRequest(BaseModel):
     project_id: str
     background_asset_id: str

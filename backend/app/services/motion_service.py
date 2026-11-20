@@ -415,6 +415,140 @@ def cutout_image(
     )
 
 
+def render_camera_motion(
+    *,
+    background_path: Path,
+    output_path: Path,
+    duration: float = 8.0,
+    fps: int = 24,
+    width: int = 1280,
+    height: int = 720,
+    camera: str = "push_in",
+    motion_strength: float = 1.0,
+) -> dict[str, Any]:
+    """Render a smooth camera move over a still plate.
+
+    The plate is pre-scaled with overscan and every frame is resampled from a
+    floating-point crop, avoiding the integer cropping jitter of FFmpeg zoompan.
+    """
+    if camera not in CAMERA_PRESETS:
+        raise ValueError(f"Unknown camera preset '{camera}'.")
+    if not 1 <= duration <= 60:
+        raise ValueError("Duration must be between 1 and 60 seconds.")
+    if not 12 <= fps <= 30:
+        raise ValueError("FPS must be between 12 and 30.")
+    width -= width % 2
+    height -= height % 2
+    strength = max(0.0, min(3.0, float(motion_strength)))
+
+    background = Image.open(background_path).convert("RGB")
+    plate = _cover(background, width, height, _OVERSCAN)
+    ffmpeg = _ffmpeg(load_config())
+    frames = max(2, int(round(duration * fps)))
+    command = [
+        ffmpeg, "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
+        "-s", f"{width}x{height}", "-r", str(fps), "-i", "pipe:0",
+        "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output_path),
+    ]
+    process = subprocess.Popen(
+        command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        creationflags=_creation_flags(),
+    )
+    assert process.stdin is not None
+    preset = CAMERA_PRESETS[camera]
+    for index in range(frames):
+        progress = index / max(1, frames - 1)
+        zoom, pan_x, pan_y = _camera(preset, progress)
+        zoom = 1.0 + (zoom - 1.0) * strength
+        pan_x *= strength
+        pan_y *= strength
+        crop_width = max(2, int(width / zoom))
+        crop_height = max(2, int(height / zoom))
+        available_x = max(0, plate.width - crop_width)
+        available_y = max(0, plate.height - crop_height)
+        center_x = plate.width / 2 + pan_x * available_x / 2
+        center_y = plate.height / 2 + pan_y * available_y / 2
+        center_x = min(plate.width - crop_width / 2, max(crop_width / 2, center_x))
+        center_y = min(plate.height - crop_height / 2, max(crop_height / 2, center_y))
+        box = (
+            int(center_x - crop_width / 2),
+            int(center_y - crop_height / 2),
+            int(center_x + crop_width / 2),
+            int(center_y + crop_height / 2),
+        )
+        frame = plate.crop(box).resize((width, height), Image.LANCZOS)
+        process.stdin.write(frame.tobytes())
+    process.stdin.close()
+    error = process.stderr.read().decode("utf-8", errors="replace") if process.stderr else ""
+    code = process.wait()
+    if code != 0:
+        raise RuntimeError(f"FFmpeg failed ({code}): {error.strip()[-500:]}")
+    return {
+        "width": width,
+        "height": height,
+        "fps": fps,
+        "duration": round(frames / fps, 3),
+        "frames": frames,
+        "camera": camera,
+        "motion_strength": strength,
+    }
+
+
+def camera_clip_asset(
+    project_id: str,
+    asset_id: str,
+    *,
+    duration: float = 8.0,
+    fps: int = 24,
+    width: int = 1280,
+    height: int = 720,
+    camera: str = "push_in",
+    motion_strength: float = 1.0,
+) -> dict[str, Any]:
+    background_path, asset = _project_asset(project_id, asset_id)
+    if not str(asset.get("mime", "")).startswith("image/"):
+        raise ValueError("The camera source must be an image.")
+    output_dir = Path(load_config()["paths"]["output_dir"]) / project_id / "motion" / "camera"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    handle, temp_name = tempfile.mkstemp(suffix=".mp4", dir=output_dir)
+    os.close(handle)
+    temp_path = Path(temp_name)
+    try:
+        meta = render_camera_motion(
+            background_path=background_path,
+            output_path=temp_path,
+            duration=duration,
+            fps=fps,
+            width=width,
+            height=height,
+            camera=camera,
+            motion_strength=motion_strength,
+        )
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+    stored = store_asset_from_path(
+        project_id=project_id,
+        subdir="motion/camera",
+        filename=f"{asset_id}_{camera}.mp4",
+        source_path=temp_path,
+        kind="video",
+        mime="video/mp4",
+        meta={
+            "kind": "video",
+            "operation": "camera_motion",
+            "source_asset_id": asset_id,
+            **meta,
+        },
+    )
+    logger.info("Camera clip %s from %s (%s)", stored["id"], asset_id, camera)
+    return stored
+
+
 def _project_asset(project_id: str, asset_id: str) -> tuple[Path, dict[str, Any]]:
     found = asset_file(asset_id)
     if not found:

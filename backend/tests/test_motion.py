@@ -8,6 +8,7 @@ from app.services.motion_service import (
     _camera,
     cutout_image,
     key_plain_background,
+    render_camera_motion,
 )
 
 
@@ -92,3 +93,43 @@ def test_cutout_prompt_requests_a_chroma_backdrop():
     negative = character_negative_prompt("cutout", "standing", "blue scarf")
     assert "floor shadow" in negative
     assert "green" not in negative
+
+
+def test_camera_motion_renders_a_clip(tmp_path):
+    image = Image.new("RGB", (640, 360), (70, 120, 90))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((100, 80, 540, 300), fill=(190, 150, 90))
+    source = tmp_path / "plate.png"
+    image.save(source)
+    output = tmp_path / "clip.mp4"
+    meta = render_camera_motion(
+        background_path=source,
+        output_path=output,
+        duration=1.0,
+        fps=12,
+        width=320,
+        height=180,
+        camera="push_in",
+    )
+    assert meta["frames"] == 12
+    assert meta["camera"] == "push_in"
+    assert output.stat().st_size > 1000
+
+
+def test_camera_motion_rejects_unknown_preset(tmp_path):
+    image = Image.new("RGB", (64, 64), (0, 0, 0))
+    source = tmp_path / "plate.png"
+    image.save(source)
+    try:
+        render_camera_motion(
+            background_path=source,
+            output_path=tmp_path / "x.mp4",
+            duration=1.0,
+            fps=12,
+            width=64,
+            height=64,
+            camera="orbit",
+        )
+    except ValueError:
+        return
+    raise AssertionError("unknown camera preset should fail")

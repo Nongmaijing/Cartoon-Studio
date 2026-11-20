@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from ..db import query_one
-from ..schemas_ai import CutoutRequest, ParallaxRequest
+from ..schemas_ai import CameraClipRequest, CutoutRequest, ParallaxRequest
 from ..services import motion_service
 
 router = APIRouter(prefix="/api/v1/motion", tags=["motion"])
@@ -64,6 +64,28 @@ async def cutout(payload: CutoutRequest) -> dict[str, Any]:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"asset": asset}
+
+
+@router.post("/camera", status_code=201)
+async def camera(payload: CameraClipRequest) -> dict[str, Any]:
+    _require_project(payload.project_id)
+    try:
+        asset = await asyncio.to_thread(
+            motion_service.camera_clip_asset,
+            payload.project_id,
+            payload.asset_id,
+            duration=payload.duration,
+            fps=payload.fps,
+            width=payload.width,
+            height=payload.height,
+            camera=payload.camera,
+            motion_strength=payload.motion_strength,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"asset": asset}
 
 

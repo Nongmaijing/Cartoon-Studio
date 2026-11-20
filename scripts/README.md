@@ -188,3 +188,13 @@ backend\.venv\Scripts\python.exe scripts\build_village_life_episode.py
 
 Eight painterly vignettes, an original ambient score, birds and wind, 64 s,
 1280×720, no dialogue or subtitles. See `docs/operations/VILLAGE_LIFE.md`.
+
+## Village-life motion proof (Wan)
+
+```powershell
+backend\.venv\Scripts\python.exe scripts\build_village_motion_episode.py --reuse
+```
+
+Reuses the existing village project and the proven Wan recipe: 832×480,
+97 frames, 24 fps, 20 steps, CFG 5, about 6 minutes per 4 s shot. See
+`docs/operations/WAN_MOTION.md`.
