@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "name": "SDXL ControlNet pose + IP-Adapter identity",
+  "description": "Pose-guided SDXL generation with an OpenPose skeleton while IP-Adapter preserves the approved character identity. Used for side, three-quarter and back turnaround views.",
+  "engine": "sdxl",
+  "kind": "image",
+  "roles": {
+    "checkpoint": {
+      "node": "4",
+      "class": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    },
+    "positive_prompt": {
+      "node": "6",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "negative_prompt": {
+      "node": "7",
+      "class": "CLIPTextEncode",
+      "input": "text"
+    },
+    "input_image": {
+      "node": "10",
+      "class": "LoadImage",
+      "input": "image"
+    },
+    "pose_image": {
+      "node": "11",
+      "class": "LoadImage",
+      "input": "image"
+    },
+    "ipadapter_weight": {
+      "node": "31",
+      "class": "IPAdapterAdvanced",
+      "input": "weight"
+    },
+    "control_net_name": {
+      "node": "20",
+      "class": "ControlNetLoader",
+      "input": "control_net_name"
+    },
+    "control_strength": {
+      "node": "21",
+      "class": "ControlNetApplyAdvanced",
+      "input": "strength"
+    },
+    "width": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "width"
+    },
+    "height": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "height"
+    },
+    "batch_size": {
+      "node": "5",
+      "class": "EmptyLatentImage",
+      "input": "batch_size"
+    },
+    "seed": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "seed"
+    },
+    "steps": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "steps"
+    },
+    "cfg": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "cfg"
+    },
+    "sampler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "sampler_name"
+    },
+    "scheduler": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "scheduler"
+    },
+    "denoise": {
+      "node": "3",
+      "class": "KSampler",
+      "input": "denoise"
+    },
+    "filename_prefix": {
+      "node": "9",
+      "class": "SaveImage",
+      "input": "filename_prefix"
+    }
+  },
+  "model_checks": [
+    {
+      "role": "checkpoint",
+      "loader": "CheckpointLoaderSimple",
+      "input": "ckpt_name"
+    },
+    {
+      "role": "control_net_name",
+      "loader": "ControlNetLoader",
+      "input": "control_net_name"
+    }
+  ],
+  "output_nodes": [
+    "9"
+  ]
+}

@@ -13,9 +13,11 @@ from .approval_service import snapshot_character
 from .audit_service import log
 from .canonical_service import validate_canonical_asset
 from .conditioning import (
+    controlnet_ipadapter_workflow_id,
     controlnet_model,
     controlnet_ready,
     controlnet_workflow_id,
+    ipadapter_ready,
     ipadapter_workflow_id,
     resolve_image_mode,
 )
@@ -24,6 +26,7 @@ from .errors import NotFoundError, ServiceError
 from .generation import upload_start_image
 from .media import cover_asset_id, list_media, media_counts
 from .model_config_service import resolve_image_model
+from .pose_service import store_pose_skeleton, view_key
 
 CHARACTER_FIELDS = (
     "name",
@@ -223,6 +226,22 @@ def get_references(character_id: str) -> dict[str, Any]:
     }
 
 
+def _ipadapter_weight(label: str) -> float:
+    """Reference weight by requested camera angle.
+
+    IP-Adapter is identity conditioning, not view control: a front canonical at
+    0.9 forces a front view. Side and back views need the prompt to dominate.
+    """
+    view = (label or "").lower()
+    if "back" in view:
+        return 0.25
+    if "side" in view or "profile" in view:
+        return 0.35
+    if "three" in view or "quarter" in view or "3/4" in view:
+        return 0.55
+    return 0.8
+
+
 def _character_model_overrides(character: dict[str, Any]) -> dict[str, Any]:
     memory = character.get("memory") or {}
     model = memory.get("model") if isinstance(memory, dict) else {}
@@ -273,19 +292,10 @@ async def generate_sheet(
         config["comfyui"]["server_url"],
         timeout=float(config["comfyui"].get("request_timeout_seconds", 120)),
     )
+    explicit_reference = reference_asset_id is not None
     reference_asset_id = (
         reference_asset_id or character.get("canonical_asset_id")
     ) if use_reference else None
-    input_image = None
-    workflow_id = None
-    mode = "text-to-image"
-    control_net_name = None
-    if reference_asset_id:
-        object_info = await client.object_info()
-        mode = resolve_image_mode(object_info, reference_mode, True)
-        if mode == "controlnet-pose":
-            control_net_name = controlnet_model(object_info)
-        input_image = await upload_start_image(config, client, reference_asset_id, project_id)
     final_label = label.strip() or ("front" if kind == "reference" else kind)
     composed = character_prompt(character, kind, final_label, prompt)
     overrides = _character_model_overrides(character)
@@ -296,9 +306,60 @@ async def generate_sheet(
         input_image=bool(reference_asset_id),
         explicit=bool(overrides.get("architecture")),
     )
-    if mode == "controlnet-pose":
-        workflow_id = controlnet_workflow_id(config, model["architecture"])
+    input_image = None
+    workflow_id = None
+    mode = "text-to-image"
+    control_net_name = None
+    effective_control_strength = control_strength
+
+    # Turnaround views cannot be described into an IP-Adapter-locked front pose.
+    # Use a generated OpenPose skeleton so the camera angle is enforced.
+    requested_view = view_key(final_label)
+    wants_view = (
+        kind in {"reference", "turnaround"}
+        and requested_view in {"side", "three_quarter", "back"}
+        and not explicit_reference
+    )
+    object_info = await client.object_info() if (reference_asset_id or wants_view) else None
+    auto_pose = bool(wants_view and object_info and controlnet_ready(object_info))
+    pose_params: dict[str, Any] = {}
+    if auto_pose:
         control_net_name = controlnet_model(object_info, model["architecture"])
+        combined = (
+            controlnet_ipadapter_workflow_id(config, model["architecture"])
+            if reference_asset_id and ipadapter_ready(object_info)
+            else None
+        )
+        control_only = controlnet_workflow_id(config, model["architecture"])
+        if control_net_name and (combined or control_only):
+            skeleton = store_pose_skeleton(project_id, requested_view, 768, 1152)
+            skeleton_name = await upload_start_image(config, client, skeleton["id"], project_id)
+            if combined:
+                input_image = await upload_start_image(
+                    config, client, reference_asset_id, project_id
+                )
+                pose_params = {
+                    "pose_image": skeleton_name,
+                    "ipadapter_weight": _ipadapter_weight(final_label),
+                }
+                workflow_id = combined
+            else:
+                input_image = skeleton_name
+                workflow_id = control_only
+            mode = "controlnet-pose"
+            reference_asset_id = None
+            effective_control_strength = 0.9
+        else:
+            auto_pose = False
+
+    if not auto_pose and reference_asset_id:
+        mode = resolve_image_mode(object_info, reference_mode, True)
+        if mode == "controlnet-pose":
+            control_net_name = controlnet_model(object_info)
+        input_image = await upload_start_image(config, client, reference_asset_id, project_id)
+    if mode == "controlnet-pose" and not workflow_id:
+        workflow_id = controlnet_workflow_id(config, model["architecture"])
+        control_net_name = control_net_name or controlnet_model(object_info, model["architecture"])
         if not workflow_id or not control_net_name:
             mode = "image-to-image"
             workflow_id = None
@@ -309,17 +370,26 @@ async def generate_sheet(
             mode = "image-to-image"
             workflow_id = None
     if "preset" not in overrides:
-        overrides["preset"] = (
-            "sdxl_portrait"
-            if model["architecture"] == "sdxl" and kind == "pose"
-            else f"{model['architecture']}_character"
-        )
+        if auto_pose and model["architecture"] == "sdxl":
+            overrides["preset"] = "sdxl_turnaround"
+        elif model["architecture"] == "sdxl" and kind in {"pose", "reference", "turnaround"}:
+            overrides["preset"] = "sdxl_portrait"
+        else:
+            overrides["preset"] = f"{model['architecture']}_character"
     effective_denoise = float(
         overrides.pop("reference_strength", overrides.pop("denoise", denoise))
     )
     if mode == "ipadapter-identity":
         # IP-Adapter conditions an empty latent; a partial denoise would only add noise.
         effective_denoise = 1.0
+    if pose_params:
+        extra_params = pose_params
+    elif mode == "ipadapter-identity":
+        # A front canonical at full weight overrides the requested camera angle.
+        # Side and back views need the prompt to win, so lower the reference weight.
+        extra_params = {"ipadapter_weight": _ipadapter_weight(final_label)}
+    else:
+        extra_params = {}
     provider = registry.get("image")
     result = await provider.generate_image(
         project_id=project_id,
@@ -334,9 +404,10 @@ async def generate_sheet(
         workflow_id=workflow_id,
         input_image=input_image,
         denoise=effective_denoise if reference_asset_id else None,
-        control_strength=control_strength if mode == "controlnet-pose" else None,
+        control_strength=effective_control_strength if mode == "controlnet-pose" else None,
         control_net_name=control_net_name,
         purpose="character",
+        extra_params=extra_params,
         **overrides,
         attach={
             "owner_type": "character",

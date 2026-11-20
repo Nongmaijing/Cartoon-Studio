@@ -122,6 +122,15 @@ def default_config() -> dict[str, Any]:
                     "scheduler": "karras",
                     "batch_size": 1,
                 },
+                "sdxl_turnaround": {
+                    "width": 768,
+                    "height": 1152,
+                    "steps": 24,
+                    "cfg": 6.0,
+                    "sampler": "dpmpp_2m",
+                    "scheduler": "karras",
+                    "batch_size": 1,
+                },
                 "sdxl_background": {
                     "width": 1216,
                     "height": 832,

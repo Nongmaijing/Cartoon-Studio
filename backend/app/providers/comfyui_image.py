@@ -54,6 +54,7 @@ class ComfyUIImageProvider(ImageProvider):
             vae=kwargs.get("vae"),
             lora_name=kwargs.get("lora_name"),
             lora_strength=kwargs.get("lora_strength"),
+            extra_params=kwargs.get("extra_params"),
             priority=int(kwargs.get("priority") or 0),
         )
         return {"provider": "comfyui", "job": job, "job_id": job.get("id")}

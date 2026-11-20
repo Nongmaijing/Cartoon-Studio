@@ -17,6 +17,10 @@ CARTOON_STYLE_BACK = (
     "appealing silhouettes, consistent proportions"
 )
 
+CHARACTER_QUALITY = (
+    "clean confident outlines, expressive readable faces, appealing silhouettes, consistent proportions"
+)
+
 REFERENCE_PREAMBLE = (
     "full body cartoon character, plain light grey studio background, no scenery"
 )
@@ -198,7 +202,8 @@ def character_negative_prompt(
 
     view = _normalise_view(label)
     single_view_exclusions = (
-        "3d render, cgi, photorealistic, realistic skin, semi-realistic illustration, anime, manga, "
+        "3d render, cgi, photorealistic, realistic skin, monochrome, greyscale, "
+        "black and white, line art, sketch, pencil drawing, unfinished, "
         "multiple views, multiple angles, multi-view sheet, turnaround sheet, contact sheet, "
         "character lineup, collage, split panel, diptych, triptych, duplicate character, "
         "extra character, extra head, group, three people, crowd, "
@@ -225,13 +230,22 @@ def character_negative_prompt(
             outfit_exclusions.append("bow tie, necktie, cravat")
         outfit_exclusions.extend(_accessory_exclusions(clothing))
     opposing_view_exclusions = {
-        "front": "back view, rear view, side profile, three-quarter view",
-        "three quarter": "front view, side profile, back view, rear view",
-        "side profile": "front view, three-quarter view, back view, rear view",
+        "front": (
+            "back view, rear view, profile, side view, three-quarter view, "
+            "looking away, head turned away"
+        ),
+        "three quarter": (
+            "front view, full frontal, side profile, back view, rear view, "
+            "facing camera straight on"
+        ),
+        "side profile": (
+            "front view, full frontal, facing camera, facing the viewer, looking at viewer, "
+            "both eyes visible, full face, frontal face, three-quarter view, back view, rear view"
+        ),
         "back": (
-            "front view, front-facing, front-facing pose, face visible, visible face, visible eyes, "
-            "visible nose, visible mouth, front-facing eyes, looking at camera, "
-            "head turned toward camera"
+            "front view, front-facing, front-facing pose, facing camera, facing the viewer, "
+            "chest visible, face visible, visible face, visible eyes, visible nose, visible mouth, "
+            "front-facing eyes, looking at viewer, looking at camera, head turned toward camera"
         ),
     }
     exclusions = opposing_view_exclusions.get(view, "")
@@ -285,7 +299,12 @@ def _short_identity(description: str) -> str:
         r"^draft\s+character\s+profile\s*[:\-—]?\s*", "", text, flags=re.IGNORECASE
     )
     text = _IDENTITY_TAIL.sub("", text)
-    return " ".join(text.split(".")[0].split()[:8]).strip()
+    # Style belongs in the style field; drop "in ghibli style"-type tails.
+    text = re.sub(r"\s+in\s+[\w'\- ]{1,40}?style\s*$", "", text, flags=re.IGNORECASE)
+    words = text.split(".")[0].split()[:10]
+    while words and words[-1].lower().strip("(),.;") in _DANGLING_WORDS:
+        words.pop()
+    return " ".join(words).strip(" ,;")
 
 
 def _short_appearance(appearance: str, max_words: int = 10) -> str:
@@ -376,9 +395,8 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
                 parts.append(value)
         if clothing_positive:
             parts.append(f"wearing {clothing_positive}")
-        if style:
-            parts.append(style)
-        parts.append(style_text())
+        direction = f"{style}, {CHARACTER_QUALITY}" if style else style_text()
+        parts.append(direction)
         parts.append(
             f"single head and shoulders portrait showing {label or 'a neutral expression'}, "
             "one expression only, plain light background, no multiple views"
@@ -389,9 +407,8 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
                 parts.append(value)
         if clothing_positive:
             parts.append(f"wearing {clothing_positive}")
-        if style:
-            parts.append(style)
-        parts.append(style_text())
+        direction = f"{style}, {CHARACTER_QUALITY}" if style else style_text()
+        parts.append(direction)
         parts.append(
             f"single full body character in a {label or 'standing naturally'} pose, "
             "one character only, plain light background, clear silhouette, no multiple views"
@@ -401,31 +418,38 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
         is_back = view == "back"
         view_instructions = {
             "front": (
-                "front view, facing camera, looking at camera, arms at sides, standing, "
-                "neutral pose"
+                "front view, shoulders parallel to camera, facing camera, both eyes visible, "
+                "arms at sides, standing, neutral pose"
             ),
             "three quarter": (
-                "three-quarter view at approximately 45 degrees, arms at sides, standing, "
-                "neutral pose"
+                "three-quarter view at approximately 45 degrees, one shoulder closer to camera, "
+                "both eyes visible, standing, neutral pose"
             ),
             "side profile": (
-                "true side profile at exactly 90 degrees, body facing screen right, "
-                "only the near eye visible, arms at sides, standing, neutral pose"
+                "true side profile, body turned 90 degrees, nose pointing right, one eye and one "
+                "ear visible, shoulders perpendicular to camera, standing, neutral pose"
             ),
             "back": (
-                "rear view, body facing directly away from the camera, back of head and back "
-                "of clothing visible, face completely hidden, no facial features visible, "
-                "no front-facing eyes, standing, neutral pose"
+                "rear view, body facing directly away from the camera, back of head and clothing "
+                "visible, face completely hidden, no facial features visible, no front-facing eyes, "
+                "standing, neutral pose"
             ),
         }
         camera_instruction = view_instructions.get(
             view,
             f"{view} view, body aligned to the requested camera angle, neutral pose",
         )
+        base_style = style_text(back=is_back)
+        direction = f"{style}, {CHARACTER_QUALITY}" if style else base_style
+        if is_back:
+            direction = _back_safe(direction)
+        # Short colour cue early; full art direction at the tail after CLIP truncation.
+        style_core = " ".join(style.split()[:5]) if style else base_style.split(",")[0]
         parts.append(camera_instruction)
         parts.append(
-            "single full-body character, full-length wide shot, both feet fully visible"
+            "single full-body character, full-length wide shot, both feet fully visible, not a portrait"
         )
+        parts.append(style_core)
         parts.append(_clean(character.get("name")))
         parts.append(_short_identity(character.get("description") or ""))
         short_appearance = _short_appearance(appearance_positive)
@@ -436,10 +460,7 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
         core_clothing = _core_clothing(clothing_positive, include_signature=not is_back)
         if core_clothing:
             parts.append(f"wearing {core_clothing}")
-        parts.append("not a portrait, not a headshot, not a waist-up crop")
-        parts.append("clean bold outlines, flat colors, children's 2D animation")
-        # Secondary detail is appended after the 77-token core so SDXL keeps framing
-        # and wardrobe even though CLIP truncates the tail.
+        parts.append("not a headshot, not a waist-up crop")
         parts.append("one camera angle only, one character, one view")
         if view == "front":
             parts.append(
@@ -465,9 +486,7 @@ def character_prompt(character: dict[str, Any], kind: str, label: str, extra: st
             )
         if clothing_tail:
             parts.append(clothing_tail)
-        if style:
-            parts.append(_back_safe(style) if is_back else style)
-        parts.append(style_text(back=is_back))
+        parts.append(direction)
 
     if extra:
         parts.append(extra.strip())

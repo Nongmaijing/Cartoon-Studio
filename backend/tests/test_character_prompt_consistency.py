@@ -43,10 +43,10 @@ PIP = {
 
 def test_human_reference_prompts_use_one_explicit_camera_view():
     expected = {
-        "front": "body facing directly toward the camera",
-        "three-quarter": "approximately 45 degrees",
-        "side profile": "exactly 90 degrees",
-        "back": "body facing directly away from the camera",
+        "front": "shoulders parallel to camera",
+        "three-quarter": "45 degrees",
+        "side profile": "90 degrees",
+        "back": "facing directly away from the camera",
     }
 
     for label, camera_instruction in expected.items():
@@ -93,7 +93,7 @@ def test_view_aliases_are_normalised_without_duplicate_wording():
 
     for label in ("side", "profile", "side profile view"):
         prompt = character_prompt(LEO, "reference", label)
-        assert "exactly 90 degrees" in prompt
+        assert "90 degrees" in prompt
         assert "view view" not in prompt
 
 
@@ -212,7 +212,6 @@ def test_turnaround_negative_prompt_blocks_collages_and_wrong_views():
         "unrequested clothing changes",
         "unrequested accessories",
         "incorrect viewing angle",
-        "anime",
     )
     for label in ("front", "three-quarter", "side profile", "back"):
         negative = character_negative_prompt("reference", label)

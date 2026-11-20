@@ -70,6 +70,11 @@
       "class": "KSampler",
       "input": "denoise"
     },
+    "ipadapter_weight": {
+      "node": "31",
+      "class": "IPAdapterAdvanced",
+      "input": "weight"
+    },
     "filename_prefix": {
       "node": "9",
       "class": "SaveImage",

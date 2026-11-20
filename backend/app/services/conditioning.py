@@ -120,6 +120,29 @@ def controlnet_workflow_id(config: dict[str, Any], architecture: str) -> str | N
     return None
 
 
+def controlnet_ipadapter_workflow_id(config: dict[str, Any], architecture: str) -> str | None:
+    """Pick a workflow that combines pose control with identity conditioning."""
+    from ..workflows.registry import find_workflow
+
+    models = config.get("models") or {}
+    configured = str((models.get("workflows") or {}).get(f"controlnet_ipadapter_{architecture}") or "")
+    for candidate in (configured, f"{architecture}_controlnet_ipadapter"):
+        if not candidate:
+            continue
+        entry = find_workflow(config, candidate)
+        if not entry:
+            continue
+        roles = set(entry.get("roles") or [])
+        if (
+            entry.get("format") == "api"
+            and entry.get("valid")
+            and entry.get("kind") == "image"
+            and {"input_image", "pose_image", "control_net_name", "ipadapter_weight"} <= roles
+        ):
+            return candidate
+    return None
+
+
 def resolve_image_mode(
     object_info: dict[str, Any],
     reference_mode: str,
