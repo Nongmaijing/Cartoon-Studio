@@ -88,6 +88,39 @@ def _estimate_line_ms(text: str) -> int:
     return max(1200, min(8000, words * 360))
 
 
+def meta_cues(meta: dict[str, Any], start_ms: int, total_ms: int) -> list[tuple[int, int, str]]:
+    """Expand an audio asset's transcript into subtitle cues.
+
+    Imported narration carries ``meta.cues`` with sentence-level timings; TTS
+    lines only carry one text/duration pair.
+    """
+    cues = meta.get("cues")
+    if isinstance(cues, list) and cues:
+        entries: list[tuple[int, int, str]] = []
+        for cue in cues:
+            if not isinstance(cue, dict):
+                continue
+            text = str(cue.get("text") or "").strip().replace("\r", " ").replace("\n", " ")
+            if not text:
+                continue
+            cue_start = start_ms + max(0, int(cue.get("start_ms") or 0))
+            cue_end = start_ms + max(0, int(cue.get("end_ms") or 0))
+            if cue_end <= cue_start:
+                continue
+            cue_end = min(total_ms, cue_end)
+            if cue_end > cue_start:
+                entries.append((cue_start, cue_end, text))
+        if entries:
+            return entries
+
+    text = str(meta.get("text") or "").strip().replace("\r", " ").replace("\n", " ")
+    if not text:
+        return []
+    duration_ms = int(meta.get("duration_ms") or 0) or _estimate_line_ms(text)
+    end = min(total_ms, start_ms + duration_ms)
+    return [(start_ms, end, text)] if end > start_ms else []
+
+
 def build_srt(timeline: dict[str, Any], total_ms: int) -> str:
     """Build subtitles from the timeline's dialogue audio, falling back to scene script lines."""
     entries: list[tuple[int, int, str]] = []
@@ -101,14 +134,10 @@ def build_srt(timeline: dict[str, Any], total_ms: int) -> str:
                 meta = json.loads((asset or {}).get("meta_json") or "{}")
             except json.JSONDecodeError:
                 meta = {}
-            text = str(meta.get("text") or "").strip().replace("\r", " ").replace("\n", " ")
-            if not text:
-                continue
             start = max(0, int(item.get("start_ms") or 0))
-            duration_ms = int(meta.get("duration_ms") or 0) or _estimate_line_ms(text)
-            end = min(total_ms, start + duration_ms)
-            if end > start:
-                entries.append((start, end, text))
+            for start, end, text in meta_cues(meta, start, total_ms):
+                if end > start:
+                    entries.append((start, end, text))
     else:
         cursor = 0
         for segment in timeline.get("segments") or []:
